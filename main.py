@@ -26,3 +26,4 @@ print(str(console.root.identity))
 print(console.is_empty())
 
 print(str(console.root().func()))
+

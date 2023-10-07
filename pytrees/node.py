@@ -24,13 +24,42 @@ class Node[T]:
         self.children = children
 
     def __call__(self, *args: Any, **kwargs: Any) -> T:
+        """Return the identity of this node."""
         return self.identity
     
     def __str__(self) -> str:
+        """Return the string representation of this node."""
         return str(self.identity)
     
     def __repr__(self) -> str:
+        """Return the string representation of this node."""
         return repr(self.identity)
+    
+    def __eq__(self, other: Self) -> bool:
+        """Return True if the identity of this node is equal to the identity of the other node, otherwise False."""
+        return self.identity == other.identity
+    
+    def __ne__(self, other: Self) -> bool:
+        """Return True if the identity of this node is not equal to the identity of the other node, otherwise False."""
+        return self.identity != other.identity
+    
+    def __lt__(self, other: Self) -> bool:
+        """Return True if the identity of this node is less than the identity of the other node, otherwise False."""
+        return self.identity < other.identity
+    
+    def __le__(self, other: Self) -> bool:
+        """Return True if the identity of this node is less than or equal to the identity of the other node, otherwise False."""
+        return self.identity <= other.identity
+    
+    def __gt__(self, other: Self) -> bool:
+        """Return True if the identity of this node is greater than the identity of the other node, otherwise False."""
+        return self.identity > other.identity
+    
+    def __ge__(self, other: Self) -> bool:
+        """Return True if the identity of this node is greater than or equal to the identity of the other node, otherwise False."""
+        return self.identity >= other.identity
+    
+
 
     def get_parent(self) -> Self:
         """Return the parent of this node."""
@@ -82,3 +111,119 @@ class Node[T]:
     def has_children(self) -> bool:
         """Return True if this node has one or more children, otherwise False."""
         return len(self.children) > 0
+    
+    def add_child(self, child: Self) -> None:
+        """
+        Add a child to this node.
+
+        Args:
+            child (Node[T]): The child to add to this node.
+        """
+        self.children.append(child)
+
+    def remove_child(self, child: Self) -> None:
+        """
+        Remove a child from this node.
+
+        Args:
+            child (Node[T]): The child to remove from this node.
+        """
+        self.children.remove(child)
+
+    def get_child(self, index: int) -> Self:
+        """
+        Return the child at the specified index.
+
+        Args:
+            index (int): The index of the child to return.
+
+        Returns:
+            Node[T]: The child at the specified index.
+        """
+        return self.children[index]
+    
+    def count_children(self) -> int:
+        """Return the number of children for this node."""
+        return len(self.children)
+    
+    def get_descendants(self) -> list[Self]:
+        """Return a list of all descendants for this node."""
+        descendants = []
+        for child in self.children:
+            descendants.append(child)
+            descendants.extend(child.get_descendants())
+        return descendants
+    
+    def count_descendants(self) -> int:
+        """Return the number of descendants for this node."""
+        return len(self.get_descendants())
+    
+    def get_ancestors(self) -> list[Self]:
+        """Return a list of all ancestors for this node."""
+        ancestors = []
+        if self.parent is not None:
+            ancestors.append(self.parent)
+            ancestors.extend(self.parent.get_ancestors())
+        return ancestors
+    
+    def count_ancestors(self) -> int:
+        """Return the number of ancestors for this node."""
+        return len(self.get_ancestors())
+    
+    def get_siblings(self) -> list[Self]:
+        """Return a list of all siblings for this node."""
+        siblings = []
+        if self.parent is not None:
+            siblings.extend(self.parent.get_children())
+            siblings.remove(self)
+        return siblings
+    
+    def count_siblings(self) -> int:
+        """Return the number of siblings for this node."""
+        return len(self.get_siblings())
+    
+    def has_siblings(self) -> bool:
+        """Return True if this node has one or more siblings, otherwise False."""
+        return self.count_siblings() > 0
+    
+    def get_leaves(self) -> list[Self]:
+        """Return a list of all leaves for this node."""
+        leaves = []
+        if not self.has_children():
+            leaves.append(self)
+        else:
+            for child in self.children:
+                leaves.extend(child.get_leaves())
+        return leaves
+    
+    def count_leaves(self) -> int:
+        """Return the number of leaves for this node."""
+        return len(self.get_leaves())
+    
+    def has_leaves(self) -> bool:
+        """Return True if this node has one or more leaves, otherwise False."""
+        return self.count_leaves() > 0
+    
+    def get_level(self) -> int:
+        """Return the level of this node."""
+        level = 0
+        if self.parent is not None:
+            level = self.parent.get_level() + 1
+        return level
+    
+    def get_height(self) -> int:
+        """Return the height of this node."""
+        height = 0
+        if self.has_children():
+            for child in self.children:
+                height = max(height, child.get_height() + 1)
+        return height
+    
+    def get_depth(self) -> int:
+        """Return the depth of this node."""
+        depth = 0
+        if self.parent is not None:
+            depth = self.parent.get_depth() + 1
+        return depth
+    
+
