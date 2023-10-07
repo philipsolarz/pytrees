@@ -1,0 +1,14 @@
+[tool.poetry]
+name = "pytrees"
+version = "0.1.0"
+description = "A Python library for Tree data structures"
+authors = ["Philip Solarz <philip.solarz@teliacompany.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
