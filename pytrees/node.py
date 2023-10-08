@@ -28,7 +28,12 @@ class Node[T]:
         return self.identity
     
     def __str__(self) -> str:
-        """Return the string representation of this node."""
+        """
+        Return the string representation of this node.
+        
+        Returns:
+            str: The string representation of this node.
+        """
         return str(self.identity)
     
     def __repr__(self) -> str:
@@ -36,7 +41,15 @@ class Node[T]:
         return repr(self.identity)
     
     def __eq__(self, other: Self) -> bool:
-        """Return True if the identity of this node is equal to the identity of the other node, otherwise False."""
+        """
+        Return True if the identity of this node is equal to the identity of the other node, otherwise False.
+        
+        Args:
+            other (Node[T]): The other node to compare with.
+            
+        Returns:
+            bool: True if the identity of this node is equal to the identity of the other node, otherwise False.
+        """
         return self.identity == other.identity
     
     def __ne__(self, other: Self) -> bool:
@@ -143,11 +156,19 @@ class Node[T]:
         return self.children[index]
     
     def count_children(self) -> int:
-        """Return the number of children for this node."""
+        """Counts the number of children for this node.
+        
+        Returns:
+            int: The number of children for this node.
+        """
         return len(self.children)
     
     def get_descendants(self) -> list[Self]:
-        """Return a list of all descendants for this node."""
+        """Return a list of all descendants for this node.
+        
+        Returns:
+            list[Node[T]]: A list of all descendants for this node.
+        """
         descendants = []
         for child in self.children:
             descendants.append(child)
@@ -155,11 +176,19 @@ class Node[T]:
         return descendants
     
     def count_descendants(self) -> int:
-        """Return the number of descendants for this node."""
+        """Return the number of descendants for this node.
+        
+        Returns:
+            int: The number of descendants for this node.
+        """
         return len(self.get_descendants())
     
     def get_ancestors(self) -> list[Self]:
-        """Return a list of all ancestors for this node."""
+        """Return a list of all ancestors for this node.
+        
+        Returns:
+            list[Node[T]]: A list of all ancestors for this node.
+        """
         ancestors = []
         if self.parent is not None:
             ancestors.append(self.parent)
@@ -167,11 +196,19 @@ class Node[T]:
         return ancestors
     
     def count_ancestors(self) -> int:
-        """Return the number of ancestors for this node."""
+        """Return the number of ancestors for this node.
+        
+        Returns:
+            int: The number of ancestors for this node.
+        """
         return len(self.get_ancestors())
     
     def get_siblings(self) -> list[Self]:
-        """Return a list of all siblings for this node."""
+        """Return a list of all siblings for this node.
+        
+        Returns:
+            list[Node[T]]: A list of all siblings for this node.
+        """
         siblings = []
         if self.parent is not None:
             siblings.extend(self.parent.get_children())
@@ -179,15 +216,28 @@ class Node[T]:
         return siblings
     
     def count_siblings(self) -> int:
-        """Return the number of siblings for this node."""
+        """Return the number of siblings for this node.
+        
+        Returns:
+            int: The number of siblings for this node.
+        """
         return len(self.get_siblings())
     
     def has_siblings(self) -> bool:
-        """Return True if this node has one or more siblings, otherwise False."""
+        """Return True if this node has one or more siblings, otherwise False.
+        
+        Returns:
+            bool: True if this node has one or more siblings, otherwise False.
+        """
         return self.count_siblings() > 0
     
     def get_leaves(self) -> list[Self]:
-        """Return a list of all leaves for this node."""
+        """Return a list of all leaves for this node.
+        
+        Returns:
+            list[Node[T]]: A list of all leaves for this node.
+            
+        """
         leaves = []
         if not self.has_children():
             leaves.append(self)
@@ -226,4 +276,149 @@ class Node[T]:
             depth = self.parent.get_depth() + 1
         return depth
     
+    def is_leaf(self) -> bool:
+        """Return True if this node is a leaf, otherwise False."""
+        return not self.has_children()
+    
+    def is_branch(self) -> bool:
+        """Return True if this node is a branch, otherwise False."""
+        return self.has_children()
+    
+    def is_internal(self) -> bool:
+        """Return True if this node is internal, otherwise False."""
+        return self.has_children()
+    
+    def preorder_traversal(self) -> list[Self]:
+        """Return a list of nodes in preorder traversal.
+        
+        Returns:
+            list[Node[T]]: A list of nodes in preorder traversal.
+        """
+        nodes = []
+        nodes.append(self)
+        for child in self.children:
+            nodes.extend(child.preorder_traversal())
+        return nodes
+    
+    def postorder_traversal(self) -> list[Self]:
+        """Return a list of nodes in postorder traversal.
+        
+        Returns:
+            list[Node[T]]: A list of nodes in postorder traversal.
+        """
+        nodes = []
+        for child in self.children:
+            nodes.extend(child.postorder_traversal())
+        nodes.append(self)
+        return nodes
+    
+    def inorder_traversal(self) -> list[Self]:
+        """Return a list of nodes in inorder traversal.
+        
+        Returns:
+            list[Node[T]]: A list of nodes in inorder traversal.    
+        """
+        nodes = []
+        if self.has_children():
+            nodes.extend(self.children[0].inorder_traversal())
+        nodes.append(self)
+        if self.has_children():
+            nodes.extend(self.children[1].inorder_traversal())
+        return nodes
+    
+    def breadth_first_traversal(self) -> list[Self]:
+        """Return a list of nodes in breadth-first traversal.
+        
+        Returns:
+            list[Node[T]]: A list of nodes in breadth-first traversal.
+        """
+        nodes = []
+        queue = [self]
+        while len(queue) > 0:
+            node = queue.pop(0)
+            nodes.append(node)
+            queue.extend(node.children)
+        return nodes
+    
+    def depth_first_traversal(self) -> list[Self]:
+        """Return a list of nodes in depth-first traversal.
+        
+        Returns:
+            list[Node[T]]: A list of nodes in depth-first traversal.
+        """
+        nodes = []
+        stack = [self]
+        while len(stack) > 0:
+            node = stack.pop()
+            nodes.append(node)
+            stack.extend(node.children)
+        return nodes
+    
+    def lowest_common_ancestor(self, node: Self) -> Self:
+        """
+        Return the lowest common ancestor of this node and the specified node.
+
+        Args:
+            node (Node[T]): The node to find the lowest common ancestor with.
+
+        Returns:
+            Node[T]: The lowest common ancestor of this node and the specified node.
+        """
+        ancestors = self.get_ancestors()
+        node_ancestors = node.get_ancestors()
+        common_ancestors = [ancestor for ancestor in ancestors if ancestor in node_ancestors]
+        return common_ancestors[0]
+    
+    def get_path(self, node: Self) -> list[Self]:
+        """
+        Return the path from this node to the specified node.
+
+        Args:
+            node (Node[T]): The node to find the path to.
+
+        Returns:
+            list[Node[T]]: The path from this node to the specified node.
+        """
+        path = []
+        ancestor = self.lowest_common_ancestor(node)
+        while self != ancestor:
+            path.append(self)
+            self = self.parent
+        path.append(ancestor)
+        while node != ancestor:
+            path.append(node)
+            node = node.parent
+        return path
+    
+    def get_distance(self, node: Self) -> int:
+        """
+        Return the distance from this node to the specified node.
+
+        Args:
+            node (Node[T]): The node to find the distance to.
+
+        Returns:
+            int: The distance from this node to the specified node.
+        """
+        path = self.get_path(node)
+        return len(path) - 1
+    
+    def prune(self) -> None:
+        """Remove all children from this node."""
+        self.children = []
+
+    def clear(self) -> None:
+        """Remove all children from this node and set the identity to None."""
+        self.children = []
+        self.identity = None
+
+    def copy(self) -> Self:
+        """Return a copy of this node."""
+        return Node(self.parent, self.identity, self.children)
+    
+    def deepcopy(self) -> Self:
+        """Return a deepcopy of this node."""
+        return Node(self.parent, self.identity, [child.deepcopy() for child in self.children])
+    
+
 
