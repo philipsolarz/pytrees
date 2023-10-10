@@ -1,7 +1,6 @@
 from pytrees.node import Node
 
-
-type N[T] = Node[T] | T | None
+type N[T] = Node[T] | T | dict[T | list[T]] | None
 
 class Tree[T]:
     """
@@ -22,12 +21,13 @@ class Tree[T]:
             >>> tree = Tree(Node(1))
             >>> tree = Tree(Node(1, [Node(2), Node(3)]))
     """
-    def __init__(self, root: N[T] = None):
+    def __init__(self, root: N[T] = None, max_children: int | None = None):
         """
         Creates a new tree with the given root node.
 
         Args:
             root (N[T], optional): The root node of the tree. Defaults to None.
+            max_children (int, optional): The maximum number of children each node can have. Defaults to None.
 
         Raises:
             TypeError: If the root node is not of type Node.
@@ -39,12 +39,24 @@ class Tree[T]:
             >>> tree = Tree(Node(1))
             >>> tree = Tree(Node(1, [Node(2), Node(3)]))
         """
+        self.max_children = max_children
         if root is None:
             self.root = None
         elif isinstance(root, Node):
+            if self.max_children is not None:
+                if len(root.get_children()) > self.max_children:
+                    raise ValueError(f"Node cannot have more than {self.max_children} children.")
             self.root = root
+        elif isinstance(root, dict):
+            if len(root) != 1:
+                raise ValueError("There can only be one root node.")
+            self.root = Node[T](identity=root.keys()[0], max_children=self.max_children)
+            for child in root.values()[0]:
+                self.root.add_child(Node[T](identity=child, max_children=self.max_children))
+
+
         else:
-            self.root = Node[T](identity=root)
+            self.root = Node[T](identity=root, max_children=self.max_children)
 
     def is_empty(self) -> bool:
         """
@@ -120,7 +132,9 @@ class Tree[T]:
         if node is None:
             self.root = None
         elif isinstance(node, Node):
-            self.root = node
+            if self.max_children is not None:
+                if len(node.get_children()) > self.max_children:
+                    raise ValueError(f"Node cannot have more than {self.max_children} children.")
         else:
             self.root = Node[T](identity=node)
 
@@ -354,6 +368,63 @@ class Tree[T]:
             child = Node[T](identity=child)
         
         node.remove_child(child)
+
+    def insert_node(self, node: N[T], parent: N[T]):
+        """
+        Inserts a node into the tree.
+
+        Args:
+            node (N[T]): The node to insert.
+            parent (N[T] | Callable): The parent of the node to insert.
+
+        Examples:
+
+            >>> tree = Tree()
+            >>> tree.insert_node(1, 2)
+            >>> tree.get_children(2)
+            [1]
+        """
+        if node is None:
+            node = None
+        elif isinstance(node, Node):
+            node = node
+        else:
+            node = Node[T](identity=node)
+
+        if parent is None:
+            parent = self.root
+        elif isinstance(parent, Node):
+            parent = parent
+        else:
+            parent = Node[T](identity=parent)
+        
+        parent.add_child(node)
+
+    def remove_node(self, node: N[T]):
+        """
+        Removes a node from the tree.
+
+        Args:
+            node (N[T]): The node to remove.
+
+        Examples:
+            
+                >>> tree = Tree()
+                >>> tree.insert_node(1, 2)
+                >>> tree.get_children(2)
+                [1]
+                >>> tree.remove_node(1)
+                >>> tree.get_children(2)
+                []
+            """
+        if node is None:
+            node = None
+        elif isinstance(node, Node):
+            node = node
+        else:
+            node = Node[T](identity=node)
+        
+        node.remove()
 
     def is_leaf(self, node: N[T]) -> bool:
         """

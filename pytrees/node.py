@@ -1,4 +1,36 @@
 from typing import Any, Self
+type C[T] = Self | T | dict[T | list[T]]
+class Node[T]:
+    def __init__(self, parent: Self = None, identity: T = None, children: C[T] = [], max_children: int | None = None) -> None:
+        self.parent = parent
+        self.identity = identity
+        self.max_children = max_children
+        if self.max_children is not None:
+            if len(children) > self.max_children:
+                raise ValueError(f"Number of children ({len(children)}) cannot exceed maximum number of children ({self.max_children}).")
+        for child in children:
+            if isinstance(child, Node):
+                self.add_child(child)
+            elif isinstance(child, dict):
+                self.build_subtree_from_dict(child)
+            else:
+                self.add_child(Node(self, child, max_children=self.max_children))
+
+    def add_child(self, child: Self) -> None:
+        if self.max_children is not None:
+            if len(self.children) >= self.max_children:
+                raise ValueError(f"Number of children ({len(self.children)}) cannot exceed maximum number of children ({self.max_children}).")
+        self.children.append(child)
+        
+    def build_subtree_from_dict(self, subtree: dict) -> None:
+        if len(subtree) != 1:
+            raise ValueError("There can only be one root node.")
+        for key, value in subtree.items():
+            child_node = Node(parent=self, identity=key, max_children=self.max_children)
+            self.add_child(child_node)
+            if value is not None:
+                for subtree in value:
+                    child_node.build_subtree_from_dict(subtree)
 
 class Node[T]:
     """
@@ -8,9 +40,11 @@ class Node[T]:
         parent (Node[T]): The parent of this node.
         identity (T): The identity of this node.
         children (list[Node[T]]): The children of this node.
+        max_children (int | None, optional): The maximum number of children allowed for this node. Defaults to None.
+
     """
     
-    def __init__(self, parent: Self = None, identity: T = None, children: list[Self] = []):
+    def __init__(self, parent: Self = None, identity: T = None, children: list[Self] = [], max_children: int | None = None) -> None:
         """
         Initialize a new node.
 
@@ -18,9 +52,14 @@ class Node[T]:
             parent (Node[T], optional): The parent of this node. Defaults to None.
             identity (T, optional): The identity of this node. Defaults to None.
             children (list[Node[T]], optional): The children of this node. Defaults to [].
+            max_children (int | None, optional): The maximum number of children allowed for this node. Defaults to None.
         """
         self.parent = parent
         self.identity = identity
+
+        if max_children is not None:
+            if len(children) > max_children:
+                raise ValueError(f"Number of children ({len(children)}) cannot exceed maximum number of children ({max_children}).")
         self.children = children
 
     def __repr__(self) -> str:
