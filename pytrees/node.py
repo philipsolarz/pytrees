@@ -356,7 +356,7 @@ class Node[T]:
         """
         self.identity = identity
 
-    def is_empty(self) -> bool:
+    def is_empty(self) -> bool: # is_anonymous
         """
         Return True if this node does not contain any identity, otherwise False.
         
