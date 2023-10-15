@@ -2,7 +2,7 @@ from typing import Any, Self, Generator
 from collections import deque
 
 type S[T] = dict[str, Self | T | list[S[T]]]
-type SQ[T] = dict[Self | T, list[S[T]]]
+# type SQ[T] = dict[Self | T, list[S[T]]]
 # type C[T] = list[Self] | list[T] | list[S[T]]
 type C[T] = list[Self | T | S[T]]
 # type C[T] = Self | T | dict[T | list[T]]
@@ -10,9 +10,10 @@ type TChild[T] = Self | T | S[T]
 type TChildren[T] = list[Self | T | S[T]]
 type TNode[T] = Self | T | S[T]
 type TParent[T] = Self | T 
-
-class BaseNode[T]:
-    def __init__(self, parent: Self = None, identity: T = None, children: C[T] = [], max_children: int | None = None) -> None:
+type N[T] = Self | T
+    
+class Node[T]:
+    def __init__(self, parent: Self = None, identity: T = None, children: list[N[T]] = [], max_children: int | None = None) -> None:
         self._parent = parent
         self._identity = identity
         self._max_children = max_children
@@ -84,10 +85,6 @@ class BaseNode[T]:
 
     def is_branch(self) -> bool:
         return self.has_children()
-    
-class Node[T](BaseNode[T]):
-    def __init__(self, parent: Self = None, identity: T = None, children: C[T] = [], max_children: int | None = None) -> None:
-        super().__init__(parent=parent, identity=identity, children=children, max_children=max_children)
 
     def preorder_traversal(self) -> Generator[Self, None, None]:
         yield self
@@ -106,32 +103,39 @@ class Node[T](BaseNode[T]):
             yield current
             queue.extend(current.children)
 
-    def add_child(self, child: TChild[T], validate_subtree: bool = True) -> None:
+    def _add_child(self, child: Self) -> None:
+        if self.max_children is not None:
+            if len(self.children) >= self.max_children:
+                raise ValueError(f"Number of children ({len(self.children)}) cannot exceed maximum number of children ({self.max_children}).")
+        self.children.append(child)
+
+    def _add_child_from_dict(self, child_as_dict: S[T]) -> None:
+        if self.max_children is not None:
+            if len(self.children) >= self.max_children:
+                raise ValueError(f"Number of children ({len(self.children)}) cannot exceed maximum number of children ({self.max_children}).")
+        child = Node[T].from_dict(child_as_dict)
+        self.children.append(child)
+
+    def add_child(self, child: TChild[T]) -> None:
         if self.max_children is not None:
             if len(self.children) >= self.max_children:
                 raise ValueError(f"Number of children ({len(self.children)}) cannot exceed maximum number of children ({self.max_children}).")
         if isinstance(child, Node):
             self.children.append(child)
         elif isinstance(child, dict):
-            identity = child.get("identity")
-            max_children = child.get("max_children", self.max_children)
-            grandchildren = child.get("children", [])
-            child = Node(parent=self, identity=identity, max_children=max_children, children=grandchildren)
-            if not validate_subtree:
-                self.children.append(child)
-            for grandchild in grandchildren:
-                child.add_child(grandchild)
-            if validate_subtree:
-                self.children.append(child)
+            child = Node[T].from_dict(child)
+            self.children.append(child)
         else:
             identity = child
             child = Node(parent=self, identity=identity, max_children=self.max_children)
             self.children.append(child)
     
+
+
     def add_children(self, children: TChildren[T]) -> None:
         for child in children:
             self.add_child(child)
-
+    """
     def add_node(self, parent: Self | T, node: TNode[T]) -> None:
         if isinstance(parent, Node):
             for current_node in self.levelorder_traversal():
@@ -164,46 +168,41 @@ class Node[T](BaseNode[T]):
     def remove_children(self, children: list[Self | T]) -> None:
         for child in children:
             self.remove_child(child)
+    """
 
+    
     @classmethod
     def from_dict(cls, node_as_dict: S[T]):
         identity = node_as_dict.get("identity")
         max_children = node_as_dict.get("max_children")
         children_as_dicts = node_as_dict.get("children", [])
         
-        node = cls(identity=identity, max_children=max_children)
-
-        for child_as_dict in children_as_dicts:
-            if isinstance(child, dict):
-                child = cls.from_dict(child_as_dict)
-                node.add_child(child)
-
-        return node
+        children = [cls.from_dict(child_as_dict) for child_as_dict in children_as_dicts if isinstance(child_as_dict, dict)]
+        
+        return cls(identity=identity, max_children=max_children, children=children)
     
-    def to_dict
+    def to_dict(self) -> S[T]:
+        result = {
+            "identity": self.identity,
+            "children": [child.to_dict() for child in self.children]
+        }
+        if self.max_children is not None:
+            result["max_children"] = self.max_children
+        return result
 
 
-# Example usage
-def f1():
-    pass
-def f2():
-    pass
-def f3():
-    pass
-def f4():
-    pass
 
-functree_dict = {
-    "identity": f1,
+inttree_dict = {
+    "identity": 1,
     "children": [
         {
-            "identity": f2,
+            "identity": 2,
             "children": [
                 {
-                    "identity": f3,
+                    "identity": 3,
                     "children": [
                         {
-                            "identity": f4,
+                            "identity": 4,
                             "children": []
                         }
                     ]
@@ -212,28 +211,13 @@ functree_dict = {
         }
     ]
 }
+print(inttree_dict)
+node = Node[int].from_dict(inttree_dict)
 
-node = Node.from_dict(functree_dict)
 
-subtree_dict = {
-    "identity": "B",
-    "children": [
-        {
-            "identity": "D",
-            "children": []
-        },
-        {
-            "identity": "E",
-            "children": [
-                {
-                    "identity": "G",
-                    "children": []
-                }
-            ]
-        }
-    ]
-}
+# print(node.children)
+inttree_dict_2 = node.to_dict()
+print("----")
+print(inttree_dict_2)
 
-root = Node[str](identity='Root', children=[subtree_dict])
-root.build_subtree_from_dict({})
-print(root)
+
