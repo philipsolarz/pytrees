@@ -1,4 +1,4 @@
-from pytrees.tree import Tree
+from pytrees.simpletree import Tree
 
 class Session:
     def __init__(self, name: str):
