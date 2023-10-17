@@ -3,7 +3,16 @@ from pytrees.simplenode import SimpleNode as Node
 from collections import deque
 from rich.tree import Tree
 
+# type N[T] = Node[T] 
 
+class Tree[T]:
+    def __init__(self, root: Node[T], max_children: int | None = None) -> None:
+        if max_children is not None:
+                if len(root.get_children()) > max_children:
+                    raise ValueError(f"Node cannot have more than {max_children} children.")
+        self._root = root
+        self._max_children = max_children
+        
 
     def preorder_traversal(self, callback: Callable[[Self], bool] | None = None) -> Generator[Self, None, None]:
         if callback is not None and not callback(self):

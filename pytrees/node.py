@@ -1,10 +1,10 @@
-from typing import Self, Generator, Callable, Any
-
+from typing import Self, Generator, Callable, Any, override
+from collections import deque
 from rich import print
 from basenode import BaseNode
 type S[T] = dict[str, Self | T | list[S[T]]]
 
-class SimpleNode[T](BaseNode[T]):
+class Node[T](BaseNode[T]):
     def __init__(self, parent: Self = None, identity: T = None, children: list[Self] = [], max_children: int | None = None) -> None:
         super().__init__(identity=identity)
         self._parent = parent
@@ -89,19 +89,26 @@ class SimpleNode[T](BaseNode[T]):
         for child in self.children:
             child.parent = None
         self.children.clear()
+
+    @classmethod
+    def _from_dict(cls, node_as_dict: S[T], parent: Self = None):
+        identity = node_as_dict.get("identity")
+        max_children = node_as_dict.get("max_children")
+        children_as_dicts = node_as_dict.get("children", [])
+        
+        node = cls(parent=parent, identity=identity, max_children=max_children)
+        
+        children = [cls._from_dict(child_as_dict, node) for child_as_dict in children_as_dicts if isinstance(child_as_dict, dict)]
+        node.children = children
+        
+        return node
     
     @classmethod
     def from_dict(cls, node_as_dict: S[T]):
         parent = node_as_dict.get("parent", None)
         if parent and not isinstance(parent, cls):
             raise ValueError(f"Parent node must be of type {cls.__name__} or None.")
-        identity = node_as_dict.get("identity", None)
-        max_children = node_as_dict.get("max_children", None)
-        children = node_as_dict.get("children", [])
-        for child in children:
-            if child and not isinstance(child, cls):
-                raise ValueError(f"Child nodes must be of type {cls.__name__} or None.")
-        return cls(identity=identity, max_children=max_children, parent=parent, children=children)
+        return cls._from_dict(node_as_dict, parent)
 
     def to_dict(self) -> S[T]:
         node_as_dict = {}
@@ -114,7 +121,103 @@ class SimpleNode[T](BaseNode[T]):
         if self.has_children():
             node_as_dict["children"] = [child for child in self.children]
         return node_as_dict
+
+    def preorder_traversal(self, callback: Callable[[Self], bool] | None = None) -> Generator[Self, None, None]:
+        if callback is not None and not callback(self):
+            return
+        yield self
+        for child in self.children:
+            yield from child.preorder_traversal(callback)
+
+    def postorder_traversal(self, callback: Callable[[Self], bool] | None = None) -> Generator[Self, None, None]:
+        if callback is not None and not callback(self):
+            return
+        for child in self.children:
+            yield from child.postorder_traversal(callback)
+        yield self
+
+    def levelorder_traversal(self, callback: Callable[[Self], bool] | None = None) -> Generator[Self, None, None]:
+        queue = deque([self])
+        while queue:
+            current = queue.popleft()
+            if callback is not None and not callback(current):
+                return
+            yield current
+            queue.extend(current.children)
+
+    def upwards_traversal(self, callback: Callable[[Self], bool] | None = None) -> Generator[Self, None, None]:
+        current = self
+        while current is not None:
+            if callback is not None and not callback(current):
+                return
+            yield current
+            current = current.parent
+
+    def is_ancestor_of(self, other: Self) -> bool:
+        """Returns True if self is an ancestor of other, False otherwise."""
+        for node in other.upwards_traversal():
+            if node == self:
+                return True
+        return False
     
+    def is_descendant_of(self, other: Self) -> bool:
+        """Returns True if self is a descendant of other, False otherwise."""
+        for node in self.upwards_traversal():
+            if node == other:
+                return True
+        return False
+    
+    def is_sibling_with(self, other: Self) -> bool:
+        """Returns True if self is a sibling of other, False otherwise."""
+        return self.parent == other.parent
+    
+    def __lt__(self, other: Self) -> bool:
+        # self < other
+        return self.is_ancestor_of(other)
+    
+    def __le__(self, other: Self) -> bool:
+        # self <= other
+        return self.is_ancestor_of(other) or self.is_sibling_with(other)
+    
+    def __eq__(self, other: Self) -> bool:
+        # self == other
+        return self.is_sibling_with(other)
+    
+    def __ne__(self, other: Self) -> bool:
+        # self != other
+        return not self.is_sibling_with(other)
+    
+    def __gt__(self, other: Self) -> bool:
+        # self > other
+        return self.is_descendant_of(other)
+    
+    def __ge__(self, other: Self) -> bool:
+        # self >= other
+        return self.is_descendant_of(other) or self.is_sibling_with(other)
+    
+    def lowest_common_ancestor(self, other: Self) -> Self:
+        ancestors = set(self.upwards_traversal())
+        for ancestor in other.upwards_traversal():
+            if ancestor in ancestors:
+                return ancestor
+        raise ValueError(f"Nodes {self} and {other} do not share a common ancestor.")
+    
+    def get_path(self, other: Self) -> list[Self]:
+        path_self_to_root = [node for node in self.upwards_traversal()]
+        
+        # Lambda to stop traversal once we reach a common ancestor.
+        path_other_to_lca = [node for node in other.upwards_traversal(lambda node: node not in path_self_to_root)]
+        
+        # If there's no overlap in paths, return an empty list.
+        if not path_other_to_lca or path_other_to_lca[-1] not in path_self_to_root:
+            return []
+        
+        lca_index = path_self_to_root.index(path_other_to_lca[-1])
+        return path_self_to_root[:lca_index] + path_other_to_lca[::-1]
+    
+    def get_distance(self, other: Self) -> int:
+        path = self.get_path(other)
+        return len(path)
  
         
 inttree_dict = {
