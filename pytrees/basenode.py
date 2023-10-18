@@ -310,19 +310,19 @@ class BaseNode[T]:
         
     def __floor__(self) -> Self:
         try:
-            return math.floor(self.identity)
+            return floor(self.identity)
         except TypeError:
             raise TypeError(f"The 'floor()' operation is not supported for identity objects of type '{type(self.identity).__name__}'.")
         
     def __ceil__(self) -> Self:
         try:
-            return math.ceil(self.identity)
+            return ceil(self.identity)
         except TypeError:
             raise TypeError(f"The 'ceil()' operation is not supported for identity objects of type '{type(self.identity).__name__}'.")
         
     def __trunc__(self) -> Self:
         try:
-            return math.trunc(self.identity)
+            return trunc(self.identity)
         except TypeError:
             raise TypeError(f"The 'trunc()' operation is not supported for identity objects of type '{type(self.identity).__name__}'.")
         

@@ -1,4 +1,4 @@
-from pytrees.simplenode import SimpleNode as Node
+from experimental.simplenode2 import SimpleNode as Node
 
 type N[T] = Node[T] | T | dict[T | list[T]] | None
 

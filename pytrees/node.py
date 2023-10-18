@@ -1,11 +1,11 @@
 from typing import Self, Generator, Callable, Any, override
 from collections import deque
-from rich import print
+# from rich import print
 from basenode import BaseNode
 type S[T] = dict[str, Self | T | list[S[T]]]
 
 class Node[T](BaseNode[T]):
-    def __init__(self, parent: Self = None, identity: T = None, children: list[Self] = [], max_children: int | None = None) -> None:
+    def __init__(self, parent: Self[T] = None, identity: T = None, children: list[Self[T]] = [], max_children: int | None = None) -> None:
         super().__init__(identity=identity)
         self._parent = parent
         self._max_children = max_children
@@ -15,11 +15,11 @@ class Node[T](BaseNode[T]):
         self._children = children
 
     @property
-    def parent(self) -> Self:
+    def parent(self) -> Self[T]:
         return self._parent
 
     @parent.setter
-    def parent(self, parent: Self) -> None:
+    def parent(self, parent: Self[T]) -> None:
         self._parent = parent
 
     def has_parent(self) -> bool:
@@ -42,11 +42,11 @@ class Node[T](BaseNode[T]):
         self._max_children = max_children
 
     @property
-    def children(self) -> list[Self]:
+    def children(self) -> list[Self[T]]:
         return self._children
     
     @children.setter
-    def children(self, children: Self) -> None:
+    def children(self, children: Self[T]) -> None:
         if self.max_children is not None:
             if len(children) >= self.max_children:
                 raise ValueError(f"Number of children ({len(children)}) cannot exceed maximum number of children ({self.max_children}).")
@@ -61,14 +61,14 @@ class Node[T](BaseNode[T]):
     def is_branch(self) -> bool:
         return self.has_children()
 
-    def add_child(self, child: Self) -> None:
+    def add_child(self, child: Self[T]) -> None:
         if self.max_children is not None:
             if len(self.children) >= self.max_children:
                 raise ValueError(f"Number of children ({len(self.children)}) cannot exceed maximum number of children ({self.max_children}).")
         self.children.append(child)
         child.parent = self
 
-    def add_children(self, children: list[Self]) -> None:
+    def add_children(self, children: list[Self[T]]) -> None:
         if self.max_children is not None:
             if len(self.children) + len(children) >= self.max_children:
                 raise ValueError(f"Number of children ({len(self.children) + len(children)}) cannot exceed maximum number of children ({self.max_children}).")
@@ -76,11 +76,11 @@ class Node[T](BaseNode[T]):
         for child in children:
             child.parent = self
 
-    def remove_child(self, child: Self) -> None:
+    def remove_child(self, child: Self[T]) -> None:
         self.children.remove(child)
         child.parent = None
 
-    def remove_children(self, children: list[Self]) -> None:
+    def remove_children(self, children: list[Self[T]]) -> None:
         for child in children:
             self.children.remove(child)
             child.parent = None
@@ -91,7 +91,7 @@ class Node[T](BaseNode[T]):
         self.children.clear()
 
     @classmethod
-    def _from_dict(cls, node_as_dict: S[T], parent: Self = None):
+    def _from_dict(cls, node_as_dict: S[T], parent: Self[T] = None):
         identity = node_as_dict.get("identity")
         max_children = node_as_dict.get("max_children")
         children_as_dicts = node_as_dict.get("children", [])
@@ -119,24 +119,24 @@ class Node[T](BaseNode[T]):
         if self.max_children is not None:
             node_as_dict["max_children"] = self.max_children
         if self.has_children():
-            node_as_dict["children"] = [child for child in self.children]
+            node_as_dict["children"] = [child.to_dict() for child in self.children]
         return node_as_dict
 
-    def preorder_traversal(self, callback: Callable[[Self], bool] | None = None) -> Generator[Self, None, None]:
+    def preorder_traversal(self, callback: Callable[[Self[T]], bool] | None = None) -> Generator[Self[T], None, None]:
         if callback is not None and not callback(self):
             return
         yield self
         for child in self.children:
             yield from child.preorder_traversal(callback)
 
-    def postorder_traversal(self, callback: Callable[[Self], bool] | None = None) -> Generator[Self, None, None]:
+    def postorder_traversal(self, callback: Callable[[Self[T]], bool] | None = None) -> Generator[Self[T], None, None]:
         if callback is not None and not callback(self):
             return
         for child in self.children:
             yield from child.postorder_traversal(callback)
         yield self
 
-    def levelorder_traversal(self, callback: Callable[[Self], bool] | None = None) -> Generator[Self, None, None]:
+    def levelorder_traversal(self, callback: Callable[[Self[T]], bool] | None = None) -> Generator[Self[T], None, None]:
         queue = deque([self])
         while queue:
             current = queue.popleft()
@@ -145,7 +145,7 @@ class Node[T](BaseNode[T]):
             yield current
             queue.extend(current.children)
 
-    def upwards_traversal(self, callback: Callable[[Self], bool] | None = None) -> Generator[Self, None, None]:
+    def upwards_traversal(self, callback: Callable[[Self[T]], bool] | None = None) -> Generator[Self[T], None, None]:
         current = self
         while current is not None:
             if callback is not None and not callback(current):
@@ -153,56 +153,56 @@ class Node[T](BaseNode[T]):
             yield current
             current = current.parent
 
-    def is_ancestor_of(self, other: Self) -> bool:
+    def is_ancestor_of(self, other: Self[T]) -> bool:
         """Returns True if self is an ancestor of other, False otherwise."""
         for node in other.upwards_traversal():
             if node == self:
                 return True
         return False
     
-    def is_descendant_of(self, other: Self) -> bool:
+    def is_descendant_of(self, other: Self[T]) -> bool:
         """Returns True if self is a descendant of other, False otherwise."""
         for node in self.upwards_traversal():
             if node == other:
                 return True
         return False
     
-    def is_sibling_with(self, other: Self) -> bool:
+    def is_sibling_with(self, other: Self[T]) -> bool:
         """Returns True if self is a sibling of other, False otherwise."""
         return self.parent == other.parent
     
-    def __lt__(self, other: Self) -> bool:
+    def __lt__(self, other: Self[T]) -> bool:
         # self < other
         return self.is_ancestor_of(other)
     
-    def __le__(self, other: Self) -> bool:
+    def __le__(self, other: Self[T]) -> bool:
         # self <= other
         return self.is_ancestor_of(other) or self.is_sibling_with(other)
     
-    def __eq__(self, other: Self) -> bool:
+    def __eq__(self, other: Self[T]) -> bool:
         # self == other
         return self.is_sibling_with(other)
     
-    def __ne__(self, other: Self) -> bool:
+    def __ne__(self, other: Self[T]) -> bool:
         # self != other
         return not self.is_sibling_with(other)
     
-    def __gt__(self, other: Self) -> bool:
+    def __gt__(self, other: Self[T]) -> bool:
         # self > other
         return self.is_descendant_of(other)
     
-    def __ge__(self, other: Self) -> bool:
+    def __ge__(self, other: Self[T]) -> bool:
         # self >= other
         return self.is_descendant_of(other) or self.is_sibling_with(other)
     
-    def lowest_common_ancestor(self, other: Self) -> Self:
+    def lowest_common_ancestor(self, other: Self[T]) -> Self[T]:
         ancestors = set(self.upwards_traversal())
         for ancestor in other.upwards_traversal():
             if ancestor in ancestors:
                 return ancestor
         raise ValueError(f"Nodes {self} and {other} do not share a common ancestor.")
     
-    def get_path(self, other: Self) -> list[Self]:
+    def get_path(self, other: Self[T]) -> list[Self[T]]:
         path_self_to_root = [node for node in self.upwards_traversal()]
         
         # Lambda to stop traversal once we reach a common ancestor.
@@ -215,7 +215,7 @@ class Node[T](BaseNode[T]):
         lca_index = path_self_to_root.index(path_other_to_lca[-1])
         return path_self_to_root[:lca_index] + path_other_to_lca[::-1]
     
-    def get_distance(self, other: Self) -> int:
+    def get_distance(self, other: Self[T]) -> int:
         path = self.get_path(other)
         return len(path)
  
