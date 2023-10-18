@@ -1,6 +1,5 @@
-from typing import Self, Generator, Callable, Any, override
+from typing import Self, Generator, Callable, Any
 from collections import deque
-# from rich import print
 from basenode import BaseNode
 type S[T] = dict[str, Self | T | list[S[T]]]
 
@@ -205,10 +204,8 @@ class Node[T](BaseNode[T]):
     def get_path(self, other: Self[T]) -> list[Self[T]]:
         path_self_to_root = [node for node in self.upwards_traversal()]
         
-        # Lambda to stop traversal once we reach a common ancestor.
         path_other_to_lca = [node for node in other.upwards_traversal(lambda node: node not in path_self_to_root)]
         
-        # If there's no overlap in paths, return an empty list.
         if not path_other_to_lca or path_other_to_lca[-1] not in path_self_to_root:
             return []
         
@@ -218,7 +215,11 @@ class Node[T](BaseNode[T]):
     def get_distance(self, other: Self[T]) -> int:
         path = self.get_path(other)
         return len(path)
- 
+    
+    def get_siblings(self) -> list[Self[T]]:
+        if self.is_root():
+            return []
+        return [child for child in self.parent.children if child != self]
         
 inttree_dict = {
     "identity": 1,

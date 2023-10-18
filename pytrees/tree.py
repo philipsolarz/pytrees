@@ -1,6 +1,13 @@
 from node import Node
 from typing import Callable, Generator, Self
 from collections import deque
+from enum import Enum
+
+class TraversalType(Enum):
+    PREORDER = "preorder"
+    POSTORDER = "postorder"
+    LEVELORDER = "levelorder"
+    UPWARDS = "upwards"
 
 class Tree[T]:
     def __init__(self, root: Node[T]) -> None:
@@ -9,9 +16,35 @@ class Tree[T]:
         if self._max_children is not None:
                 if len(root.get_children()) > self._max_children:
                     raise ValueError(f"Node cannot have more than {self._max_children} children.")
+                
+    def __eq__(self, other: Self[T]) -> bool:
+        if not isinstance(other, Tree):
+            return NotImplemented
+        return self.contains_subtree(other) and other.contains_subtree(self)
 
+    def __lt__(self, other: Self[T]) -> bool:
+        if not isinstance(other, Tree):
+            return NotImplemented
+        return other.contains_subtree(self) and not self.__eq__(other)
 
+    def __le__(self, other: Self[T]) -> bool:
+        if not isinstance(other, Tree):
+            return NotImplemented
+        return other.contains_subtree(self)
 
+    def __gt__(self, other: Self[T]) -> bool:
+        if not isinstance(other, Tree):
+            return NotImplemented
+        return self.contains_subtree(other) and not self.__eq__(other)
+
+    def __ge__(self, other: Self[T]) -> bool:
+        if not isinstance(other, Tree):
+            return NotImplemented
+        return self.contains_subtree(other)
+
+    def __ne__(self, other: Self[T]) -> bool:
+        return not self.__eq__(other)
+    
     @property
     def root(self) -> Node[T]:
         return self._root
@@ -68,6 +101,68 @@ class Tree[T]:
             yield current
             current = current.parent
 
+    def size(self) -> int:
+        return len(list(self.levelorder_traversal(self.root)))
+    
+    def depth(self, node: Node[T]) -> int:
+        return len(list(self.upwards_traversal(node))) - 1
+    
+    def find(self, query_function: Callable[[Node[T]], bool], traversal_type: TraversalType = TraversalType.LEVELORDER) -> Node[T] | None:
+        if traversal_type == TraversalType.PREORDER:
+            return self._find_preorder(query_function)
+        elif traversal_type == TraversalType.POSTORDER:
+            return self._find_postorder(query_function)
+        elif traversal_type == TraversalType.LEVELORDER:
+            return self._find_levelorder(query_function)
+        elif traversal_type == TraversalType.UPWARDS:
+            return self._find_upwards(query_function)
+        
+    def _find_preorder(self, query_function: Callable[[Node[T]], bool]) -> Node[T] | None:
+        for node in self.preorder_traversal(self.root):
+            if query_function(node):
+                return node
+        return None
+    
+    def _find_postorder(self, query_function: Callable[[Node[T]], bool]) -> Node[T] | None:
+        for node in self.postorder_traversal(self.root):
+            if query_function(node):
+                return node
+        return None
+    
+    def _find_levelorder(self, query_function: Callable[[Node[T]], bool]) -> Node[T] | None:
+        for node in self.levelorder_traversal(self.root):
+            if query_function(node):
+                return node
+        return None
+    
+    def _find_upwards(self, query_function: Callable[[Node[T]], bool]) -> Node[T] | None:
+        for node in self.upwards_traversal(self.root):
+            if query_function(node):
+                return node
+        return None
+
+    def find_all(self, query_function: Callable[[Node[T]], bool], traversal_type: TraversalType = TraversalType.LEVELORDER) -> list[Node[T]]:
+        if traversal_type == TraversalType.PREORDER:
+            return self._find_all_preorder(query_function)
+        elif traversal_type == TraversalType.POSTORDER:
+            return self._find_all_postorder(query_function)
+        elif traversal_type == TraversalType.LEVELORDER:
+            return self._find_all_levelorder(query_function)
+        elif traversal_type == TraversalType.UPWARDS:
+            return self._find_all_upwards(query_function)
+        
+    def _find_all_preorder(self, query_function: Callable[[Node[T]], bool]) -> list[Node[T]]:
+        return [node for node in self.preorder_traversal(self.root) if query_function(node)]
+    
+    def _find_all_postorder(self, query_function: Callable[[Node[T]], bool]) -> list[Node[T]]:
+        return [node for node in self.postorder_traversal(self.root) if query_function(node)]
+    
+    def _find_all_levelorder(self, query_function: Callable[[Node[T]], bool]) -> list[Node[T]]:
+        return [node for node in self.levelorder_traversal(self.root) if query_function(node)]
+    
+    def _find_all_upwards(self, query_function: Callable[[Node[T]], bool]) -> list[Node[T]]:
+        return [node for node in self.upwards_traversal(self.root) if query_function(node)]
+    
     def lowest_common_ancestor(self, node1: Node[T], node2: Node[T]) -> Node[T]:
         return node1.lowest_common_ancestor(node2)
     
@@ -107,3 +202,55 @@ class Tree[T]:
             if n == node.parent:
                 n.remove_child(node)
                 break
+
+    def remove_nodes(self, nodes: list[Node[T]], parent: Node[T] = None) -> None:
+        if parent:
+            parent.remove_children(nodes)
+        # which traversal algorithm is most efficient?
+        for n in self.levelorder_traversal(self.root):
+            if n == node.parent:
+                n.remove_children(nodes)
+                break
+
+    def move_node(self, node: Node[T], new_parent: Node[T]) -> None:
+        node.parent.remove_child(node)
+        new_parent.add_child(node)
+
+    def move_nodes(self, nodes: list[Node[T]], new_parent: Node[T]) -> None:
+        for node in nodes:
+            node.parent.remove_child(node)
+        new_parent.add_children(nodes)
+
+    def swap_nodes(self, node1: Node[T], node2: Node[T]) -> None:
+        node1.parent.remove_child(node1)
+        node2.parent.remove_child(node2)
+        node1.parent.add_child(node2)
+        node2.parent.add_child(node1)
+
+    def swap_subtrees(self, node1: Node[T], node2: Node[T]) -> None:
+        node1.parent.remove_child(node1)
+        node2.parent.remove_child(node2)
+        node1.parent.add_child(node2)
+        node2.parent.add_child(node1)
+        for node in node1.levelorder_traversal():
+            node.parent = node2
+        for node in node2.levelorder_traversal():
+            node.parent = node1
+        
+    def clear(self) -> None:
+        self.root.clear()
+
+    def copy(self) -> Self[T]:
+        return Tree(self.root.copy())
+    
+    def is_leaf(self, node: Node[T]) -> bool:
+        return node.is_leaf()
+    
+    def is_root(self, node: Node[T]) -> bool:
+        return node.is_root()
+    
+    def is_branch(self, node: Node[T]) -> bool:
+        return node.is_branch()
+    
+    def get_siblings(self, node: Node[T]) -> list[Node[T]]:
+        return node.get_siblings()
