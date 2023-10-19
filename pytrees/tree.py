@@ -16,6 +16,7 @@ class Tree[T]:
         if self._max_children is not None:
                 if len(root.get_children()) > self._max_children:
                     raise ValueError(f"Node cannot have more than {self._max_children} children.")
+        self._default_traversal_type = TraversalType.PREORDER
                 
     def __eq__(self, other: Self[T]) -> bool:
         if not isinstance(other, Tree):
@@ -62,6 +63,14 @@ class Tree[T]:
             raise ValueError(f"The maximum number of children ({max_children}) cannot be less than the current number of children ({len(self.children)}).")
         self._max_children = max_children
 
+    @property
+    def default_traversal_type(self) -> TraversalType:
+        return self._default_traversal_type
+    
+    @default_traversal_type.setter
+    def default_traversal_type(self, traversal_type: TraversalType) -> None:
+        self._default_traversal_type = traversal_type
+
     @classmethod
     def from_dict(cls, tree_as_dict: dict) -> Self[T]:
         root = Node.from_dict(tree_as_dict)
@@ -107,7 +116,10 @@ class Tree[T]:
     def depth(self, node: Node[T]) -> int:
         return len(list(self.upwards_traversal(node))) - 1
     
-    def find(self, query_function: Callable[[Node[T]], bool], traversal_type: TraversalType = TraversalType.LEVELORDER) -> Node[T] | None:
+    def find(self, query_function: Callable[[Node[T]], bool], traversal_type: TraversalType | None = None) -> Node[T] | None:
+        if traversal_type is None:
+            traversal_type = self.default_traversal_type
+
         if traversal_type == TraversalType.PREORDER:
             return self._find_preorder(query_function)
         elif traversal_type == TraversalType.POSTORDER:
@@ -141,7 +153,10 @@ class Tree[T]:
                 return node
         return None
 
-    def find_all(self, query_function: Callable[[Node[T]], bool], traversal_type: TraversalType = TraversalType.LEVELORDER) -> list[Node[T]]:
+    def find_all(self, query_function: Callable[[Node[T]], bool], traversal_type: TraversalType | None = None) -> list[Node[T]]:
+        if traversal_type is None:
+            traversal_type = self.default_traversal_type
+
         if traversal_type == TraversalType.PREORDER:
             return self._find_all_preorder(query_function)
         elif traversal_type == TraversalType.POSTORDER:
@@ -183,59 +198,6 @@ class Tree[T]:
             if node == other.root:
                 return True
         return False
-    
-    def add_node(self, node: Node[T], parent: Node[T] = None) -> None:
-        if not parent:
-            parent = self.root
-        parent.add_child(node)
-
-    def add_nodes(self, nodes: list[Node[T]], parent: Node[T] = None) -> None:
-        if not parent:
-            parent = self.root
-        parent.add_children(nodes)
-
-    def remove_node(self, node: Node[T], parent: Node[T] = None) -> None:
-        if parent:
-            parent.remove_child(node)
-        # which traversal algorithm is most efficient?
-        for n in self.levelorder_traversal(self.root):
-            if n == node.parent:
-                n.remove_child(node)
-                break
-
-    def remove_nodes(self, nodes: list[Node[T]], parent: Node[T] = None) -> None:
-        if parent:
-            parent.remove_children(nodes)
-        # which traversal algorithm is most efficient?
-        for n in self.levelorder_traversal(self.root):
-            if n == node.parent:
-                n.remove_children(nodes)
-                break
-
-    def move_node(self, node: Node[T], new_parent: Node[T]) -> None:
-        node.parent.remove_child(node)
-        new_parent.add_child(node)
-
-    def move_nodes(self, nodes: list[Node[T]], new_parent: Node[T]) -> None:
-        for node in nodes:
-            node.parent.remove_child(node)
-        new_parent.add_children(nodes)
-
-    def swap_nodes(self, node1: Node[T], node2: Node[T]) -> None:
-        node1.parent.remove_child(node1)
-        node2.parent.remove_child(node2)
-        node1.parent.add_child(node2)
-        node2.parent.add_child(node1)
-
-    def swap_subtrees(self, node1: Node[T], node2: Node[T]) -> None:
-        node1.parent.remove_child(node1)
-        node2.parent.remove_child(node2)
-        node1.parent.add_child(node2)
-        node2.parent.add_child(node1)
-        for node in node1.levelorder_traversal():
-            node.parent = node2
-        for node in node2.levelorder_traversal():
-            node.parent = node1
         
     def clear(self) -> None:
         self.root.clear()
@@ -254,3 +216,55 @@ class Tree[T]:
     
     def get_siblings(self, node: Node[T]) -> list[Node[T]]:
         return node.get_siblings()
+    
+    def get_children(self, node: Node[T]) -> list[Node[T]]:
+        return node.get_children()
+    
+    def get_parent(self, node: Node[T]) -> Node[T] | None:
+        return node.get_parent()
+    
+    def add_child(self, node: Node[T], parent: Node[T] | None = None, conditional: Callable[[Node[T]], bool] | None = None, traversal_type: TraversalType | None = None) -> None:
+        if parent is None and conditional is None:
+            parent = self.root
+
+        if parent is not None:
+            parent.add_child(node)
+            return
+
+        if traversal_type is None:
+            traversal_type = self.default_traversal_type
+
+        parent = self.find(conditional, traversal_type)
+
+        if parent is not None:
+            parent.add_child(node)
+            return 
+        
+        raise ValueError(f"Could not find a parent that satisfies the given condition.")
+
+    def remove_child(self, node: Node[T], parent: Node[T] | None = None, conditional: Callable[[Node[T]], bool] | None = None, traversal_type: TraversalType | None = None) -> None:
+        if parent is None and conditional is None:
+            parent = self.root
+
+        if parent is not None:
+            parent.remove_child(node)
+            return
+
+        if traversal_type is None:
+            traversal_type = self.default_traversal_type
+
+        parent = self.find(conditional, traversal_type)
+
+        if parent is not None:
+            parent.remove_child(node)
+            return 
+        
+        raise ValueError(f"Could not find a parent that satisfies the given condition.")
+    
+    def add_children(self, nodes: list[Node[T]], parent: Node[T] | None = None, conditional: Callable[[Node[T]], bool] | None = None, traversal_type: TraversalType | None = None) -> None:
+        for node in nodes:
+            self.add_child(node, parent, conditional, traversal_type)
+
+    def remove_children(self, nodes: list[Node[T]], parent: Node[T] | None = None, conditional: Callable[[Node[T]], bool] | None = None, traversal_type: TraversalType | None = None) -> None:
+        for node in nodes:
+            self.remove_child(node, parent, conditional, traversal_type)
