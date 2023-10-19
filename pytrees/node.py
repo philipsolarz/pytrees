@@ -4,135 +4,132 @@ from basenode import BaseNode
 type S[T] = dict[str, Self | T | list[S[T]]]
 
 class Node[T](BaseNode[T]):
-    def __init__(self, parent: Self[T] = None, identity: T = None, children: list[Self[T]] = [], max_children: int | None = None) -> None:
+    def __init__(self, source: Self[T] = None, identity: T = None, branches: list[Self[T]] = [], max_branches: int | None = None) -> None:
         super().__init__(identity=identity)
-        self._parent = parent
-        self._max_children = max_children
-        if self.max_children is not None:
-            if len(children) >= self.max_children:
-                raise ValueError(f"Number of children ({len(children)}) cannot exceed maximum number of children ({self.max_children}).")
-        self._children = children
+        self._source = source
+        self._max_branches = max_branches
+        if self.max_branches is not None:
+            if len(branches) >= self.max_branches:
+                raise ValueError(f"Number of branches ({len(branches)}) cannot exceed maximum number of branches ({self.max_branches}).")
+        self._branches = branches
 
     @property
-    def parent(self) -> Self[T]:
-        return self._parent
+    def source(self) -> Self[T]:
+        return self._source
 
-    @parent.setter
-    def parent(self, parent: Self[T]) -> None:
-        self._parent = parent
+    @source.setter
+    def source(self, source: Self[T]) -> None:
+        self._source = source
 
-    def has_parent(self) -> bool:
-        return self.parent is not None
+    def has_source(self) -> bool:
+        return self.source is not None
     
     def is_root(self) -> bool:
-        return not self.has_parent()
+        return not self.has_source()
 
     @property
-    def max_children(self) -> int | None:
-        return self._max_children
+    def max_branches(self) -> int | None:
+        return self._max_branches
 
-    @max_children.setter
-    def max_children(self, max_children: int | None) -> None:
-        if max_children is not None:
-            if max_children < 0:
-                raise ValueError(f"Maximum number of children ({max_children}) must be a positive integer.")
-        if len(self.children) > max_children:
-            raise ValueError(f"The maximum number of children ({max_children}) cannot be less than the current number of children ({len(self.children)}).")
-        self._max_children = max_children
+    @max_branches.setter
+    def max_branches(self, max_branches: int | None) -> None:
+        if max_branches is not None:
+            if max_branches < 0:
+                raise ValueError(f"Maximum number of branches ({max_branches}) must be a positive integer.")
+        if len(self.branches) > max_branches:
+            raise ValueError(f"The maximum number of branches ({max_branches}) cannot be less than the current number of branches ({len(self.branches)}).")
+        self._max_branches = max_branches
 
     @property
-    def children(self) -> list[Self[T]]:
-        return self._children
+    def branches(self) -> list[Self[T]]:
+        return self._branches
     
-    @children.setter
-    def children(self, children: Self[T]) -> None:
-        if self.max_children is not None:
-            if len(children) >= self.max_children:
-                raise ValueError(f"Number of children ({len(children)}) cannot exceed maximum number of children ({self.max_children}).")
-        self._children = children
+    @branches.setter
+    def branches(self, branches: Self[T]) -> None:
+        if self.max_branches is not None:
+            if len(branches) >= self.max_branches:
+                raise ValueError(f"Number of branches ({len(branches)}) cannot exceed maximum number of branches ({self.max_branches}).")
+        self._branches = branches
 
-    def has_children(self) -> bool:
-        return len(self.children) != 0
+    def has_branches(self) -> bool:
+        return len(self.branches) != 0
 
     def is_leaf(self) -> bool:
-        return not self.has_children()
+        return not self.has_branches()
 
-    def is_branch(self) -> bool:
-        return self.has_children()
+    def add_branch(self, branch: Self[T]) -> None:
+        if self.max_branches is not None:
+            if len(self.branches) >= self.max_branches:
+                raise ValueError(f"Number of branches ({len(self.branches)}) cannot exceed maximum number of branches ({self.max_branches}).")
+        self.branches.append(branch)
+        branch.source = self
 
-    def add_child(self, child: Self[T]) -> None:
-        if self.max_children is not None:
-            if len(self.children) >= self.max_children:
-                raise ValueError(f"Number of children ({len(self.children)}) cannot exceed maximum number of children ({self.max_children}).")
-        self.children.append(child)
-        child.parent = self
+    def add_branches(self, branches: list[Self[T]]) -> None:
+        if self.max_branches is not None:
+            if len(self.branches) + len(branches) >= self.max_branches:
+                raise ValueError(f"Number of branches ({len(self.branches) + len(branches)}) cannot exceed maximum number of branches ({self.max_branches}).")
+        self.branches.extend(branches)
+        for branch in branches:
+            branch.source = self
 
-    def add_children(self, children: list[Self[T]]) -> None:
-        if self.max_children is not None:
-            if len(self.children) + len(children) >= self.max_children:
-                raise ValueError(f"Number of children ({len(self.children) + len(children)}) cannot exceed maximum number of children ({self.max_children}).")
-        self.children.extend(children)
-        for child in children:
-            child.parent = self
+    def remove_branch(self, branch: Self[T]) -> None:
+        self.branches.remove(branch)
+        branch.source = None
 
-    def remove_child(self, child: Self[T]) -> None:
-        self.children.remove(child)
-        child.parent = None
+    def remove_branches(self, branches: list[Self[T]]) -> None:
+        for branch in branches:
+            self.branches.remove(branch)
+            branch.source = None
 
-    def remove_children(self, children: list[Self[T]]) -> None:
-        for child in children:
-            self.children.remove(child)
-            child.parent = None
-
-    def clear_children(self) -> None:
-        for child in self.children:
-            child.parent = None
-        self.children.clear()
+    def clear_branches(self) -> None:
+        for branch in self.branches:
+            branch.source = None
+        self.branches.clear()
 
     @classmethod
-    def _from_dict(cls, node_as_dict: S[T], parent: Self[T] = None):
+    def _from_dict(cls, node_as_dict: S[T], source: Self[T] = None):
         identity = node_as_dict.get("identity")
-        max_children = node_as_dict.get("max_children")
-        children_as_dicts = node_as_dict.get("children", [])
+        max_branches = node_as_dict.get("max_branches")
+        branches_as_dicts = node_as_dict.get("branches", [])
         
-        node = cls(parent=parent, identity=identity, max_children=max_children)
+        node = cls(source=source, identity=identity, max_branches=max_branches)
         
-        children = [cls._from_dict(child_as_dict, node) for child_as_dict in children_as_dicts if isinstance(child_as_dict, dict)]
-        node.children = children
+        branches = [cls._from_dict(branch_as_dict, node) for branch_as_dict in branches_as_dicts if isinstance(branch_as_dict, dict)]
+        node.branches = branches
         
         return node
     
     @classmethod
     def from_dict(cls, node_as_dict: S[T]):
-        parent = node_as_dict.get("parent", None)
-        if parent and not isinstance(parent, cls):
-            raise ValueError(f"Parent node must be of type {cls.__name__} or None.")
-        return cls._from_dict(node_as_dict, parent)
+        source = node_as_dict.get("source", None)
+        if source and not isinstance(source, cls):
+            raise ValueError(f"Source node must be of type {cls.__name__} or None.")
+        return cls._from_dict(node_as_dict, source)
 
     def to_dict(self) -> S[T]:
         node_as_dict = {}
-        if self.has_parent():
-            node_as_dict["parent"] = self.parent
+        if self.has_source():
+            node_as_dict["source"] = self.source
         if self.has_identity():
             node_as_dict["identity"] = self.identity
-        if self.max_children is not None:
-            node_as_dict["max_children"] = self.max_children
-        if self.has_children():
-            node_as_dict["children"] = [child.to_dict() for child in self.children]
+        if self.max_branches is not None:
+            node_as_dict["max_branches"] = self.max_branches
+        if self.has_branches():
+            node_as_dict["branches"] = [branch.to_dict() for branch in self.branches]
         return node_as_dict
 
     def preorder_traversal(self, callback: Callable[[Self[T]], bool] | None = None) -> Generator[Self[T], None, None]:
         if callback is not None and not callback(self):
             return
         yield self
-        for child in self.children:
-            yield from child.preorder_traversal(callback)
+        for branch in self.branches:
+            yield from branch.preorder_traversal(callback)
 
     def postorder_traversal(self, callback: Callable[[Self[T]], bool] | None = None) -> Generator[Self[T], None, None]:
         if callback is not None and not callback(self):
             return
-        for child in self.children:
-            yield from child.postorder_traversal(callback)
+        for branch in self.branches:
+            yield from branch.postorder_traversal(callback)
         yield self
 
     def levelorder_traversal(self, callback: Callable[[Self[T]], bool] | None = None) -> Generator[Self[T], None, None]:
@@ -142,7 +139,7 @@ class Node[T](BaseNode[T]):
             if callback is not None and not callback(current):
                 return
             yield current
-            queue.extend(current.children)
+            queue.extend(current.branches)
 
     def upwards_traversal(self, callback: Callable[[Self[T]], bool] | None = None) -> Generator[Self[T], None, None]:
         current = self
@@ -150,7 +147,7 @@ class Node[T](BaseNode[T]):
             if callback is not None and not callback(current):
                 return
             yield current
-            current = current.parent
+            current = current.source
 
     def is_ancestor_of(self, other: Self[T]) -> bool:
         """Returns True if self is an ancestor of other, False otherwise."""
@@ -168,7 +165,7 @@ class Node[T](BaseNode[T]):
     
     def is_sibling_with(self, other: Self[T]) -> bool:
         """Returns True if self is a sibling of other, False otherwise."""
-        return self.parent == other.parent
+        return self.source == other.source
     
     def __lt__(self, other: Self[T]) -> bool:
         # self < other
@@ -219,27 +216,27 @@ class Node[T](BaseNode[T]):
     def get_siblings(self) -> list[Self[T]]:
         if self.is_root():
             return []
-        return [child for child in self.parent.children if child != self]
+        return [branch for branch in self.source.branches if branch != self]
         
 inttree_dict = {
     "identity": 1,
-    "children": [
+    "branches": [
         {
             "identity": 2,
-            "children": [
+            "branches": [
                 {
                     "identity": 3,
-                    "children": [
+                    "branches": [
                         {
                             "identity": 4,
-                            "children": [
+                            "branches": [
                                 {
                                     "identity": 5,
-                                    "children": []
+                                    "branches": []
                                 },
                                 {
                                     "identity": 6,
-                                    "children": []
+                                    "branches": []
                                 }
                             ]
                         }
@@ -247,14 +244,14 @@ inttree_dict = {
                 },
                 {
                     "identity": 7,
-                    "children": [
+                    "branches": [
                         {
                             "identity": 8,
-                            "children": []
+                            "branches": []
                         },
                         {
                             "identity": 9,
-                            "children": []
+                            "branches": []
                         }
                     ]
                 }
@@ -262,14 +259,14 @@ inttree_dict = {
         },
         {
             "identity": 10,
-            "children": [
+            "branches": [
                 {
                     "identity": 11,
-                    "children": []
+                    "branches": []
                 },
                 {
                     "identity": 12,
-                    "children": []
+                    "branches": []
                 }
             ]
         }
@@ -280,23 +277,23 @@ print(inttree_dict)
 node = Node[int].from_dict(inttree_dict)
 
 
-# print(node.children)
+# print(node.branches)
 inttree_dict_2 = node.to_dict()
 print("----")
 print(inttree_dict_2)
 
 
 for x in node.preorder_traversal():
-    print(f"{x.identity} | {x.parent.identity if x.parent else None}")
+    print(f"{x.identity} | {x.source.identity if x.source else None}")
 print("----")
 for x in node.postorder_traversal():
-    print(f"{x.identity} | {x.parent.identity if x.parent else None}")
+    print(f"{x.identity} | {x.source.identity if x.source else None}")
 print("----")
 for x in node.levelorder_traversal():
-    print(f"{x.identity} | {x.parent.identity if x.parent else None}")
+    print(f"{x.identity} | {x.source.identity if x.source else None}")
     test = x
 print("----")
 for x in test.upwards_traversal():
-    print(f"{x.identity} | {x.parent.identity if x.parent else None}")
+    print(f"{x.identity} | {x.source.identity if x.source else None}")
 
 node.print_subtree()

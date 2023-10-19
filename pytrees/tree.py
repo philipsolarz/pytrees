@@ -12,10 +12,10 @@ class TraversalType(Enum):
 class Tree[T]:
     def __init__(self, root: Node[T]) -> None:
         self._root = root
-        self._max_children = root.max_children
-        if self._max_children is not None:
-                if len(root.get_children()) > self._max_children:
-                    raise ValueError(f"Node cannot have more than {self._max_children} children.")
+        self._max_branches = root.max_branches
+        if self._max_branches is not None:
+                if len(root.get_branches()) > self._max_branches:
+                    raise ValueError(f"Node cannot have more than {self._max_branches} branches.")
         self._default_traversal_type = TraversalType.PREORDER
                 
     def __eq__(self, other: Self[T]) -> bool:
@@ -51,17 +51,17 @@ class Tree[T]:
         return self._root
     
     @property
-    def max_children(self) -> int | None:
-        return self._max_children
+    def max_branches(self) -> int | None:
+        return self._max_branches
 
-    @max_children.setter
-    def max_children(self, max_children: int | None) -> None:
-        if max_children is not None:
-            if max_children < 0:
-                raise ValueError(f"Maximum number of children ({max_children}) must be a positive integer.")
-        if len(self.children) > max_children:
-            raise ValueError(f"The maximum number of children ({max_children}) cannot be less than the current number of children ({len(self.children)}).")
-        self._max_children = max_children
+    @max_branches.setter
+    def max_branches(self, max_branches: int | None) -> None:
+        if max_branches is not None:
+            if max_branches < 0:
+                raise ValueError(f"Maximum number of branches ({max_branches}) must be a positive integer.")
+        if len(self.branches) > max_branches:
+            raise ValueError(f"The maximum number of branches ({max_branches}) cannot be less than the current number of branches ({len(self.branches)}).")
+        self._max_branches = max_branches
 
     @property
     def default_traversal_type(self) -> TraversalType:
@@ -83,14 +83,14 @@ class Tree[T]:
         if callback is not None and not callback(node):
             return
         yield self
-        for child in node.children:
-            yield from child.preorder_traversal(callback)
+        for branch in node.branches:
+            yield from branch.preorder_traversal(callback)
 
     def postorder_traversal(self, node: Node[T], callback: Callable[[Node[T]], bool] | None = None) -> Generator[Node[T], None, None]:
         if callback is not None and not callback(node):
             return
-        for child in node.children:
-            yield from child.postorder_traversal(callback)
+        for branch in node.branches:
+            yield from branch.postorder_traversal(callback)
         yield self
 
     def levelorder_traversal(self, node: Node[T], callback: Callable[[Node[T]], bool] | None = None) -> Generator[Node[T], None, None]:
@@ -100,7 +100,7 @@ class Tree[T]:
             if callback is not None and not callback(current):
                 return
             yield current
-            queue.extend(current.children)
+            queue.extend(current.branches)
 
     def upwards_traversal(self, node: Node[T], callback: Callable[[Node[T]], bool] | None = None) -> Generator[Node[T], None, None]:
         current = node
@@ -108,7 +108,7 @@ class Tree[T]:
             if callback is not None and not callback(current):
                 return
             yield current
-            current = current.parent
+            current = current.source
 
     def size(self) -> int:
         return len(list(self.levelorder_traversal(self.root)))
@@ -217,54 +217,54 @@ class Tree[T]:
     def get_siblings(self, node: Node[T]) -> list[Node[T]]:
         return node.get_siblings()
     
-    def get_children(self, node: Node[T]) -> list[Node[T]]:
-        return node.get_children()
+    def get_branches(self, node: Node[T]) -> list[Node[T]]:
+        return node.get_branches()
     
-    def get_parent(self, node: Node[T]) -> Node[T] | None:
-        return node.get_parent()
+    def get_source(self, node: Node[T]) -> Node[T] | None:
+        return node.get_source()
     
-    def add_child(self, node: Node[T], parent: Node[T] | None = None, conditional: Callable[[Node[T]], bool] | None = None, traversal_type: TraversalType | None = None) -> None:
-        if parent is None and conditional is None:
-            parent = self.root
+    def add_branch(self, node: Node[T], source: Node[T] | None = None, conditional: Callable[[Node[T]], bool] | None = None, traversal_type: TraversalType | None = None) -> None:
+        if source is None and conditional is None:
+            source = self.root
 
-        if parent is not None:
-            parent.add_child(node)
+        if source is not None:
+            source.add_branch(node)
             return
 
         if traversal_type is None:
             traversal_type = self.default_traversal_type
 
-        parent = self.find(conditional, traversal_type)
+        source = self.find(conditional, traversal_type)
 
-        if parent is not None:
-            parent.add_child(node)
+        if source is not None:
+            source.add_branch(node)
             return 
         
-        raise ValueError(f"Could not find a parent that satisfies the given condition.")
+        raise ValueError(f"Could not find a source that satisfies the given condition.")
 
-    def remove_child(self, node: Node[T], parent: Node[T] | None = None, conditional: Callable[[Node[T]], bool] | None = None, traversal_type: TraversalType | None = None) -> None:
-        if parent is None and conditional is None:
-            parent = self.root
+    def remove_branch(self, node: Node[T], source: Node[T] | None = None, conditional: Callable[[Node[T]], bool] | None = None, traversal_type: TraversalType | None = None) -> None:
+        if source is None and conditional is None:
+            source = self.root
 
-        if parent is not None:
-            parent.remove_child(node)
+        if source is not None:
+            source.remove_branch(node)
             return
 
         if traversal_type is None:
             traversal_type = self.default_traversal_type
 
-        parent = self.find(conditional, traversal_type)
+        source = self.find(conditional, traversal_type)
 
-        if parent is not None:
-            parent.remove_child(node)
+        if source is not None:
+            source.remove_branch(node)
             return 
         
-        raise ValueError(f"Could not find a parent that satisfies the given condition.")
+        raise ValueError(f"Could not find a source that satisfies the given condition.")
     
-    def add_children(self, nodes: list[Node[T]], parent: Node[T] | None = None, conditional: Callable[[Node[T]], bool] | None = None, traversal_type: TraversalType | None = None) -> None:
+    def add_branches(self, nodes: list[Node[T]], source: Node[T] | None = None, conditional: Callable[[Node[T]], bool] | None = None, traversal_type: TraversalType | None = None) -> None:
         for node in nodes:
-            self.add_child(node, parent, conditional, traversal_type)
+            self.add_branch(node, source, conditional, traversal_type)
 
-    def remove_children(self, nodes: list[Node[T]], parent: Node[T] | None = None, conditional: Callable[[Node[T]], bool] | None = None, traversal_type: TraversalType | None = None) -> None:
+    def remove_branches(self, nodes: list[Node[T]], source: Node[T] | None = None, conditional: Callable[[Node[T]], bool] | None = None, traversal_type: TraversalType | None = None) -> None:
         for node in nodes:
-            self.remove_child(node, parent, conditional, traversal_type)
+            self.remove_branch(node, source, conditional, traversal_type)
