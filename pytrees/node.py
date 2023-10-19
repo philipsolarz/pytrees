@@ -54,7 +54,7 @@ class Node[T](BaseNode[T]):
     def has_branches(self) -> bool:
         return len(self.branches) != 0
 
-    def is_leaf(self) -> bool:
+    def is_sink(self) -> bool:
         return not self.has_branches()
 
     def add_branch(self, branch: Self[T]) -> None:

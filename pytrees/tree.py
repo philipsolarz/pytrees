@@ -205,8 +205,8 @@ class Tree[T]:
     def copy(self) -> Self[T]:
         return Tree(self.root.copy())
     
-    def is_leaf(self, node: Node[T]) -> bool:
-        return node.is_leaf()
+    def is_sink(self, node: Node[T]) -> bool:
+        return node.is_sink()
     
     def is_root(self, node: Node[T]) -> bool:
         return node.is_root()
