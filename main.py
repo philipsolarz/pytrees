@@ -1,5 +1,6 @@
-from experimental.simpletree import Tree
-
+# from experimental.simpletree import Tree
+from pytrees.tree import Tree, TraversalType
+from pytrees.node import Node
 class Session:
     def __init__(self, name: str):
         self.name = name
@@ -11,19 +12,56 @@ class Session:
         print("Hello World!")
 
 class Console[T](Tree[T]):
-    def __init__(self, root):
-        super().__init__(root)
+    def __init__(self, root, *args, **kwargs):
+        super().__init__(root, *args, **kwargs)
 
 
 root = Session("root")
+tree = Tree[Session](root)
+# tree.pprint()
+b1 = Session("branch1")
+tree.add_branch(b1)
+#branch1 = tree.root.branches[0]
+#print(branch1.branches[0].identity.name)
 
-console = Console[Session](root)
+# tree.root.branches[0].display_tree()
+tree.pprint()
+tree.add_branch(Session("branch2"), conditional=lambda source: source.identity.name == "branch1", traversal_type=TraversalType.PREORDER)
+tree.pprint()
 
-console.root.identity.func()
 
-print(str(console.root.identity))
 
-print(console.is_empty())
 
-print(str(console.root().func()))
 
+tree2 = Tree[Session].from_dict({
+    "identity": root,
+    "branches": [
+        {
+            "identity": Session("branch1"),
+            "branches": [
+                {
+                    "identity": Session("branch1.1"),
+                    "branches": [
+                        {
+                            "identity": Session("branch1.1.1"),
+                            "branches": []
+                        },
+                        {
+                            "identity": Session("branch1.1.2"),
+                            "branches": []
+                        }
+                    ]
+                },
+                {
+                    "identity": Session("branch1.2"),
+                    "branches": []
+                }
+            ]
+        },
+        {
+            "identity": Session("branch2"),
+            "branches": []
+        }
+    ]
+})
+# tree2.pprint()
