@@ -8,9 +8,15 @@ class TraversalType(Enum):
     POSTORDER = "postorder"
     LEVELORDER = "levelorder"
     UPWARDS = "upwards"
+    AUTO = "auto"
 
 type S[T] = dict[str, Node[T] | T | list[S[T]]]
 type N[T] = Node[T] | T
+type Q[T] = Callable[[Node[T]], bool]
+type NQ[T] = Node[T] | Q[T]
+type NQ_Experimental[T] = Node[T] | Callable[[NQ_Experimental[T]], bool]
+type TT = TraversalType | None
+type NGen[T] = Generator[Node[T], None, None]
 
 class Tree[T]:
     def __init__(self, root: N[T]) -> None:
@@ -85,21 +91,21 @@ class Tree[T]:
     def to_dict(self) -> dict:
         return self.root.to_dict()
 
-    def preorder_traversal(self, node: Node[T], callback: Callable[[Node[T]], bool] | None = None) -> Generator[Node[T], None, None]:
+    def preorder_traversal(self, node: Node[T], callback: Q[T] | None = None) -> NGen[T]:
         if callback is not None and not callback(node):
             return
         yield node
         for branch in node.branches:
             yield from branch.preorder_traversal(callback)
 
-    def postorder_traversal(self, node: Node[T], callback: Callable[[Node[T]], bool] | None = None) -> Generator[Node[T], None, None]:
+    def postorder_traversal(self, node: Node[T], callback: Q[T] | None = None) -> NGen[T]:
         if callback is not None and not callback(node):
             return
         for branch in node.branches:
             yield from branch.postorder_traversal(callback)
         yield node
 
-    def levelorder_traversal(self, node: Node[T], callback: Callable[[Node[T]], bool] | None = None) -> Generator[Node[T], None, None]:
+    def levelorder_traversal(self, node: Node[T], callback: Q[T] | None = None) -> NGen[T]:
         queue = deque([node])
         while queue:
             current = queue.popleft()
@@ -108,7 +114,7 @@ class Tree[T]:
             yield current
             queue.extend(current.branches)
 
-    def upwards_traversal(self, node: Node[T], callback: Callable[[Node[T]], bool] | None = None) -> Generator[Node[T], None, None]:
+    def upwards_traversal(self, node: Node[T], callback: Q[T] | None = None) -> NGen[T]:
         current = node
         while current is not None:
             if callback is not None and not callback(current):
@@ -119,81 +125,129 @@ class Tree[T]:
     def size(self) -> int:
         return len(list(self.levelorder_traversal(self.root)))
     
-    def depth(self, node: Node[T]) -> int:
+    def depth(self, node: NQ[T], traversal_type: TT) -> int:
+        if isinstance(node, Node):
+            node = node
+        elif callable(node):
+            node = self.find(node, traversal_type)
+        else:
+            raise ValueError(f"node must be a Node or a callable query that returns a bool.")
         return len(list(self.upwards_traversal(node))) - 1
     
-    def find(self, query_function: Callable[[Node[T]], bool], traversal_type: TraversalType | None = None) -> Node[T] | None:
+    def find(self, query: Q[T], traversal_type: TT = None) -> Node[T] | None:
         if traversal_type is None:
             traversal_type = self.default_traversal_type
 
         if traversal_type == TraversalType.PREORDER:
-            return self._find_preorder(query_function)
+            return self._find_preorder(query)
         elif traversal_type == TraversalType.POSTORDER:
-            return self._find_postorder(query_function)
+            return self._find_postorder(query)
         elif traversal_type == TraversalType.LEVELORDER:
-            return self._find_levelorder(query_function)
+            return self._find_levelorder(query)
         elif traversal_type == TraversalType.UPWARDS:
-            return self._find_upwards(query_function)
+            return self._find_upwards(query)
         
-    def _find_preorder(self, query_function: Callable[[Node[T]], bool]) -> Node[T] | None:
+    def _find_preorder(self, query: Q[T]) -> Node[T] | None:
         for node in self.preorder_traversal(self.root):
-            if query_function(node):
+            if query(node):
                 return node
         return None
     
-    def _find_postorder(self, query_function: Callable[[Node[T]], bool]) -> Node[T] | None:
+    def _find_postorder(self, query: Q[T]) -> Node[T] | None:
         for node in self.postorder_traversal(self.root):
-            if query_function(node):
+            if query(node):
                 return node
         return None
     
-    def _find_levelorder(self, query_function: Callable[[Node[T]], bool]) -> Node[T] | None:
+    def _find_levelorder(self, query: Q[T]) -> Node[T] | None:
         for node in self.levelorder_traversal(self.root):
-            if query_function(node):
+            if query(node):
                 return node
         return None
     
-    def _find_upwards(self, query_function: Callable[[Node[T]], bool]) -> Node[T] | None:
+    def _find_upwards(self, query: Q[T]) -> Node[T] | None:
         for node in self.upwards_traversal(self.root):
-            if query_function(node):
+            if query(node):
                 return node
         return None
 
-    def find_all(self, query_function: Callable[[Node[T]], bool], traversal_type: TraversalType | None = None) -> list[Node[T]]:
+    def find_all(self, query: Q[T], traversal_type: TT = None) -> list[Node[T]]:
         if traversal_type is None:
             traversal_type = self.default_traversal_type
 
         if traversal_type == TraversalType.PREORDER:
-            return self._find_all_preorder(query_function)
+            return self._find_all_preorder(query)
         elif traversal_type == TraversalType.POSTORDER:
-            return self._find_all_postorder(query_function)
+            return self._find_all_postorder(query)
         elif traversal_type == TraversalType.LEVELORDER:
-            return self._find_all_levelorder(query_function)
+            return self._find_all_levelorder(query)
         elif traversal_type == TraversalType.UPWARDS:
-            return self._find_all_upwards(query_function)
+            return self._find_all_upwards(query)
         
-    def _find_all_preorder(self, query_function: Callable[[Node[T]], bool]) -> list[Node[T]]:
-        return [node for node in self.preorder_traversal(self.root) if query_function(node)]
+    def _find_all_preorder(self, query: Q[T]) -> list[Node[T]]:
+        return [node for node in self.preorder_traversal(self.root) if query(node)]
     
-    def _find_all_postorder(self, query_function: Callable[[Node[T]], bool]) -> list[Node[T]]:
-        return [node for node in self.postorder_traversal(self.root) if query_function(node)]
+    def _find_all_postorder(self, query: Q[T]) -> list[Node[T]]:
+        return [node for node in self.postorder_traversal(self.root) if query(node)]
     
-    def _find_all_levelorder(self, query_function: Callable[[Node[T]], bool]) -> list[Node[T]]:
-        return [node for node in self.levelorder_traversal(self.root) if query_function(node)]
+    def _find_all_levelorder(self, query: Q[T]) -> list[Node[T]]:
+        return [node for node in self.levelorder_traversal(self.root) if query(node)]
     
-    def _find_all_upwards(self, query_function: Callable[[Node[T]], bool]) -> list[Node[T]]:
-        return [node for node in self.upwards_traversal(self.root) if query_function(node)]
+    def _find_all_upwards(self, query: Q[T]) -> list[Node[T]]:
+        return [node for node in self.upwards_traversal(self.root) if query(node)]
     
-    def lowest_common_ancestor(self, node1: Node[T], node2: Node[T]) -> Node[T]:
+    def lowest_common_ancestor(self, node1: NQ[T], node2: NQ[T], traversal_type: TT = None) -> Node[T]:
+        if isinstance(node1, Node):
+            node1 = node1
+        elif callable(node1):
+            node1 = self.find(node1, traversal_type)
+        else:
+            raise ValueError(f"node1 must be a Node or a callable query that returns a bool.")
+        if isinstance(node2, Node):
+            node2 = node2
+        elif callable(node2):
+            node2 = self.find(node2, traversal_type)
+        else:
+            raise ValueError(f"node2 must be a Node or a callable query that returns a bool.")
         return node1.lowest_common_ancestor(node2)
     
-    def get_path(self, node1: Node[T], node2: Node[T]) -> list[Node[T]]:
+    def get_path(self, node1: NQ[T], node2: NQ[T], traversal_type: TT = None) -> list[Node[T]]:
+        if isinstance(node1, Node):
+            node1 = node1
+        elif callable(node1):
+            node1 = self.find(node1, traversal_type)
+        else:
+            raise ValueError(f"node1 must be a Node or a callable query that returns a bool.")
+        if isinstance(node2, Node):
+            node2 = node2
+        elif callable(node2):
+            node2 = self.find(node2, traversal_type)
+        else:
+            raise ValueError(f"node2 must be a Node or a callable query that returns a bool.")
         return node1.get_path(node2)
     
-    def get_distance(self, node1: Node[T], node2: Node[T]) -> int:
+    def get_distance(self, node1: NQ[T], node2: NQ[T], traversal_type: TT = None) -> int:
+        if isinstance(node1, Node):
+            node1 = node1
+        elif callable(node1):
+            node1 = self.find(node1, traversal_type)
+        else:
+            raise ValueError(f"node1 must be a Node or a callable query that returns a bool.")
+        if isinstance(node2, Node):
+            node2 = node2
+        elif callable(node2):
+            node2 = self.find(node2, traversal_type)
+        else:
+            raise ValueError(f"node2 must be a Node or a callable query that returns a bool.")
         return node1.get_distance(node2)
 
-    def get_subtree(self, node: Node[T]) -> Self:
+    def get_subtree(self, node: NQ[T], traversal_type: TT = None) -> Self:
+        if isinstance(node, Node):
+            node = node
+        elif callable(node):
+            node = self.find(node, traversal_type)
+        else:
+            raise ValueError(f"node must be a Node or a callable query that returns a bool.")
         for n in node.upwards_traversal():
             if n == self.root:
                 return Tree(node)
@@ -211,77 +265,100 @@ class Tree[T]:
     def copy(self) -> Self:
         return Tree(self.root.copy())
     
-    def is_sink(self, node: Node[T]) -> bool:
+    def is_sink(self, node: NQ[T], traversal_type: TT = None) -> bool:
+        if isinstance(node, Node):
+            node = node
+        elif callable(node):
+            node = self.find(node, traversal_type)
+        else:
+            raise ValueError(f"node must be a Node or a callable query that returns a bool.")
         return node.is_sink()
     
-    def is_root(self, node: Node[T]) -> bool:
+    def is_root(self, node: NQ[T], traversal_type: TT = None) -> bool:
+        if isinstance(node, Node):
+            node = node
+        elif callable(node):
+            node = self.find(node, traversal_type)
+        else:
+            raise ValueError(f"node must be a Node or a callable query that returns a bool.")
         return node.is_root()
     
-    def is_branch(self, node: Node[T]) -> bool:
+    def is_branch(self, node: NQ[T], traversal_type: TT = None) -> bool:
+        if isinstance(node, Node):
+            node = node
+        elif callable(node):
+            node = self.find(node, traversal_type)
+        else:
+            raise ValueError(f"node must be a Node or a callable query that returns a bool.")
         return node.is_branch()
     
-    def get_siblings(self, node: Node[T]) -> list[Node[T]]:
+    def get_siblings(self, node: NQ[T], traversal_type: TT = None) -> list[Node[T]]:
+        if isinstance(node, Node):
+            node = node
+        elif callable(node):
+            node = self.find(node, traversal_type)
+        else:
+            raise ValueError(f"node must be a Node or a callable query that returns a bool.")
         return node.get_siblings()
     
-    def get_branches(self, node: Node[T]) -> list[Node[T]]:
+    def get_branches(self, node: NQ[T], traversal_type: TT = None) -> list[Node[T]]:
+        if isinstance(node, Node):
+            node = node
+        elif callable(node):
+            node = self.find(node, traversal_type)
+        else:
+            raise ValueError(f"node must be a Node or a callable query that returns a bool.")
         return node.get_branches()
     
-    def get_source(self, node: Node[T]) -> Node[T] | None:
+    def get_source(self, node: NQ[T], traversal_type: TT = None) -> Node[T] | None:
+        if isinstance(node, Node):
+            node = node
+        elif callable(node):
+            node = self.find(node, traversal_type)
+        else:
+            raise ValueError(f"node must be a Node or a callable query that returns a bool.")
         return node.get_source()
     
-    def add_branch(self, node: Node[T] | T, source: Node[T] | None = None, conditional: Callable[[Node[T]], bool] | None = None, traversal_type: TraversalType | None = None) -> None:
-        if source is None and conditional is None:
+    def add_branch(self, node: Node[T] | T, source: NQ[T] | None = None, traversal_type: TT = None) -> None:
+        if isinstance(source, Node):
+            source = source
+        elif callable(source):
+            source = self.find(source, traversal_type)
+        else:
             source = self.root
 
         if isinstance(node, Node):
             node = node
         else:
-            node = Node[T](identity=node, branches=[]) # WTF is this bug? not having branches=[] causes recursion error super hard to trace?
-        print(node.branches)
-
+            node = Node[T](identity=node)
 
         if source is not None:
-            source.add_branch(node)
-            return
-
-        if traversal_type is None:
-            traversal_type = self.default_traversal_type
-
-        source = self.find(conditional, traversal_type)
-
-        if source is not None:
-            print("2.")
             source.add_branch(node)
             return 
         
         raise ValueError(f"Could not find a source that satisfies the given condition.")
 
-    def remove_branch(self, node: Node[T], source: Node[T] | None = None, conditional: Callable[[Node[T]], bool] | None = None, traversal_type: TraversalType | None = None) -> None:
-        if source is None and conditional is None:
+    def remove_branch(self, node: Node[T], source: NQ[T] | None = None, traversal_type: TT = None) -> None:
+        if isinstance(source, Node):
+            source = source
+        elif callable(source):
+            source = self.find(source, traversal_type)
+        else:
             source = self.root
 
         if source is not None:
             source.remove_branch(node)
             return
-
-        if traversal_type is None:
-            traversal_type = self.default_traversal_type
-
-        source = self.find(conditional, traversal_type)
-
-        if source is not None:
-            source.remove_branch(node)
-            return 
-        
+        # Maybe add query possibility to node as well?
         raise ValueError(f"Could not find a source that satisfies the given condition.")
     
-    def add_branches(self, nodes: list[Node[T]], source: Node[T] | None = None, conditional: Callable[[Node[T]], bool] | None = None, traversal_type: TraversalType | None = None) -> None:
+    def add_branches(self, nodes: list[Node[T]], source: NQ[T] | None = None, traversal_type: TT = None) -> None:
         for node in nodes:
-            self.add_branch(node, source, conditional, traversal_type)
+            self.add_branch(node, source, traversal_type)
 
-    def remove_branches(self, nodes: list[Node[T]], source: Node[T] | None = None, conditional: Callable[[Node[T]], bool] | None = None, traversal_type: TraversalType | None = None) -> None:
+    def remove_branches(self, nodes: list[Node[T]], source: NQ[T] | None = None, traversal_type: TT = None) -> None:
         for node in nodes:
-            self.remove_branch(node, source, conditional, traversal_type)
+            self.remove_branch(node, source, traversal_type)
 
     def pprint(self) -> None:
         """

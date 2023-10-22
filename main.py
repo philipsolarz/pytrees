@@ -26,7 +26,7 @@ tree.add_branch(b1)
 
 # tree.root.branches[0].display_tree()
 tree.pprint()
-tree.add_branch(Session("branch2"), conditional=lambda source: source.identity.name == "branch1", traversal_type=TraversalType.PREORDER)
+tree.add_branch(Session("branch2"), source=lambda source: source.identity.name == "branch1", traversal_type=TraversalType.PREORDER)
 tree.pprint()
 
 
@@ -64,4 +64,4 @@ tree2 = Tree[Session].from_dict({
         }
     ]
 })
-# tree2.pprint()
+tree2.pprint()

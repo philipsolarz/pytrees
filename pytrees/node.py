@@ -6,9 +6,11 @@ from rich import print
 type S[T] = dict[str, Self | T | list[S[T]]]
 
 class Node[T]:
-    def __init__(self, source: Self = None, identity: T = None, branches: list[Self] = [], max_branches: int | None = None) -> None:
+    def __init__(self, source: Self = None, identity: T = None, branches: list[Self] | None = None, max_branches: int | None = None) -> None:
         self._source = source
         self._identity = identity
+        if branches is None:
+            branches = []
         self._max_branches = max_branches
         if self.max_branches is not None:
             if len(branches) >= self.max_branches:
