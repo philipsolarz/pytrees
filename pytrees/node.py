@@ -1,6 +1,6 @@
 from typing import Self, Generator, Callable, Any
 from collections import deque
-from pytrees.basenode import BaseNode
+from experimental.basenode import BaseNode
 from rich.tree import Tree as RichTree
 from rich import print
 type S[T] = dict[str, Self | T | list[S[T]]]
@@ -146,14 +146,14 @@ class Node[T]:
         return node_as_dict
 
     def preorder_traversal(self, callback: Callable[[Self], bool] | None = None) -> Generator[Self, None, None]:
-        if callback is not None and not callback(self):
+        if callback is not None and callback(self):
             return
         yield self
         for branch in self.branches:
             yield from branch.preorder_traversal(callback)
 
     def postorder_traversal(self, callback: Callable[[Self], bool] | None = None) -> Generator[Self, None, None]:
-        if callback is not None and not callback(self):
+        if callback is not None and callback(self):
             return
         for branch in self.branches:
             yield from branch.postorder_traversal(callback)
@@ -163,7 +163,7 @@ class Node[T]:
         queue = deque([self])
         while queue:
             current = queue.popleft()
-            if callback is not None and not callback(current):
+            if callback is not None and callback(current):
                 return
             yield current
             queue.extend(current.branches)
@@ -171,7 +171,7 @@ class Node[T]:
     def upwards_traversal(self, callback: Callable[[Self], bool] | None = None) -> Generator[Self, None, None]:
         current = self
         while current is not None:
-            if callback is not None and not callback(current):
+            if callback is not None and callback(current):
                 return
             yield current
             current = current.source
@@ -245,7 +245,7 @@ class Node[T]:
             return []
         return [branch for branch in self.source.branches if branch != self]
     
-    def display_tree(self):
+    def print(self):
         """Displays the tree using the Rich library."""
 
         def build_rich_tree(node, parent_rich_tree=None):
