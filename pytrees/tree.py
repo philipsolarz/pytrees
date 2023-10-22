@@ -20,6 +20,8 @@ type NQ_Experimental[T] = Node[T] | Callable[[NQ_Experimental[T]], bool]
 type TT = TraversalType | None
 type NGen[T] = Generator[Node[T], None, None]
 
+type NNQ[T] = Node[T] | list[Node[T]] | Q[T] | QL[T]
+
 class Tree[T]:
     def __init__(self, root: N[T]) -> None:
         if isinstance(root, Node):
@@ -253,7 +255,7 @@ class Tree[T]:
         return nodes
         # return [node for node in self.upwards_traversal(self.root) if query(node)]
     
-    def lowest_common_ancestor(self, node1: NQ[T], node2: NQ[T], traversal_type: TT = None) -> Node[T]:
+    def lowest_common_ancestor(self, node1: NNQ[T], node2: NNQ[T], traversal_type: TT = None) -> Node[T]:
         if isinstance(node1, Node):
             node1 = node1
         elif callable(node1):
@@ -268,9 +270,35 @@ class Tree[T]:
             raise ValueError(f"node2 must be a Node or a callable query that returns a bool.")
         return node1.lowest_common_ancestor(node2)
     
-    def lowest_common_ancestors(self, nodes: NQL[T], traversal_type: TT = None) -> list[Node[T]]:
-        # Check lowest_common_ancestors between each node in nodes return matrix?
-        pass
+    def lca(self, x: NNQ[T], y: NNQ[T], limit: int | None = None, offset: int | None = None, traversal_type: TT = None) -> Node[T]:
+        if isinstance(x, Node):
+            x = [x]
+        elif isinstance(x, list):
+            x = x
+        elif callable(x):
+            x = self.find_all(x, limit, offset, traversal_type)
+        else:
+            raise ValueError(f"x must be a Node, a list of Nodes, or a callable query that returns a bool.")
+        if isinstance(y, Node):
+            y = [y]
+        elif isinstance(y, list):
+            y = y
+        elif callable(y):
+            y = self.find_all(y, limit, offset, traversal_type)
+        else:
+            raise ValueError(f"y must be a Node, a list of Nodes, or a callable query that returns a bool.")
+
+
+    
+    def lowest_common_ancestors(self, nodes: NQL[T], traversal_type: TT = None) -> list[list[Node[T]]]:
+        if isinstance(nodes, list):
+            nodes = nodes
+        elif callable(nodes):
+            nodes = self.find_all(nodes, traversal_type)
+        else:
+            raise ValueError(f"nodes must be a list of Nodes, or a callable query that returns a bool.")
+        return [[self.lowest_common_ancestor(node1, node2) for node2 in nodes] for node1 in nodes]
+
     
     def get_path(self, node1: NQ[T], node2: NQ[T], traversal_type: TT = None) -> list[Node[T]]:
         if isinstance(node1, Node):
@@ -287,6 +315,16 @@ class Tree[T]:
             raise ValueError(f"node2 must be a Node or a callable query that returns a bool.")
         return node1.get_path(node2)
     
+    def get_paths(self, nodes: NQL[T], traversal_type: TT = None) -> list[list[Node[T]]]:
+        if isinstance(nodes, list):
+            nodes = nodes
+        elif callable(nodes):
+            nodes = self.find_all(nodes, traversal_type)
+        else:
+            raise ValueError(f"nodes must be a list of Nodes, or a callable query that returns a bool.")
+        return [[self.get_path(node1, node2) for node2 in nodes] for node1 in nodes]
+        
+    
     def get_distance(self, node1: NQ[T], node2: NQ[T], traversal_type: TT = None) -> int:
         if isinstance(node1, Node):
             node1 = node1
@@ -301,6 +339,15 @@ class Tree[T]:
         else:
             raise ValueError(f"node2 must be a Node or a callable query that returns a bool.")
         return node1.get_distance(node2)
+    
+    def get_distances(self, nodes: NQL[T], traversal_type: TT = None) -> list[list[int]]:
+        if isinstance(nodes, list):
+            nodes = nodes
+        elif callable(nodes):
+            nodes = self.find_all(nodes, traversal_type)
+        else:
+            raise ValueError(f"nodes must be a list of Nodes, or a callable query that returns a bool.")
+        return [[self.get_distance(node1, node2) for node2 in nodes] for node1 in nodes]
 
     def get_subtree(self, node: NQ[T], traversal_type: TT = None) -> Self:
         if isinstance(node, Node):
