@@ -214,7 +214,6 @@ class Tree[T]:
                 if limit and len(nodes) >= limit:
                     return nodes
         return nodes
-        # return [node for node in self.preorder_traversal(self.root) if query(node)]
     
     def _find_all_postorder(self, query: Q[T], limit: int | None, offset: int | None) -> list[Node[T]]:
         nodes = []
@@ -227,7 +226,6 @@ class Tree[T]:
                 if limit and len(nodes) >= limit:
                     return nodes
         return nodes
-        # return [node for node in self.postorder_traversal(self.root) if query(node)]
     
     def _find_all_levelorder(self, query: Q[T], limit: int | None, offset: int | None) -> list[Node[T]]:
         nodes = []
@@ -240,7 +238,6 @@ class Tree[T]:
                 if limit and len(nodes) >= limit:
                     return nodes
         return nodes
-        # return [node for node in self.levelorder_traversal(self.root) if query(node)]
     
     def _find_all_upwards(self, query: Q[T], limit: int | None, offset: int | None) -> list[Node[T]]:
         nodes = []
@@ -253,26 +250,24 @@ class Tree[T]:
                 if limit and len(nodes) >= limit:
                     return nodes
         return nodes
-        # return [node for node in self.upwards_traversal(self.root) if query(node)]
     
-    def lowest_common_ancestor(self, node1: NNQ[T], node2: NNQ[T], traversal_type: TT = None) -> Node[T]:
-        if isinstance(node1, Node):
-            node1 = node1
-        elif callable(node1):
-            node1 = self.find(node1, traversal_type)
-        else:
-            raise ValueError(f"node1 must be a Node or a callable query that returns a bool.")
-        if isinstance(node2, Node):
-            node2 = node2
-        elif callable(node2):
-            node2 = self.find(node2, traversal_type)
-        else:
-            raise ValueError(f"node2 must be a Node or a callable query that returns a bool.")
-        return node1.lowest_common_ancestor(node2)
-    
-    def lca(self, x: NNQ[T], y: NNQ[T], limit: int | None = None, offset: int | None = None, traversal_type: TT = None) -> Node[T]:
+
+
+    def lca(self, x: NNQ[T], y: NNQ[T], limit: int | None = None, offset: int | None = None, traversal_type: TT = None, 
+            return_type: str = 'scalar', flatten: bool = True) -> Node[T] | list[Node[T]] | list[list[Node[T]]]:
+        # Handle case where either x or y is None
+        if x is None:
+            x = y
+        elif y is None:
+            y = x
+
+        if x is None and y is None:
+            if return_type == 'scalar':
+                return None
+            return [] if flatten else [[]]
+        
         if isinstance(x, Node):
-            x = [x]
+            x = list(x)
         elif isinstance(x, list):
             x = x
         elif callable(x):
@@ -280,7 +275,68 @@ class Tree[T]:
         else:
             raise ValueError(f"x must be a Node, a list of Nodes, or a callable query that returns a bool.")
         if isinstance(y, Node):
-            y = [y]
+            y = list(y)
+        elif isinstance(y, list):
+            y = y
+        elif callable(y):
+            y = self.find_all(y, limit, offset, traversal_type)
+        else:
+            raise ValueError(f"y must be a Node, a list of Nodes, or a callable query that returns a bool.")
+        
+        # If x and y are the same list, we can optimize by exploiting symmetry.
+        symmetric = x is y
+
+        matrix = []
+
+        for i, node_x in enumerate(x):
+            row = []
+            start_j = i + 1 if symmetric else 0
+            for j, node_y in enumerate(y[start_j:], start=start_j):
+                row.append(node_x.lca(node_y))
+            matrix.append(row)
+
+        if return_type == 'matrix':
+            if not flatten or symmetric:
+                return matrix
+            else:
+                flattened = [lca_node for row in matrix for lca_node in row]
+                return flattened
+
+        # For scalar return type
+        lca_list = [lca_node for row in matrix for lca_node in row]
+
+        if not lca_list:
+            return None  # Handle empty list case
+
+        final_lca = lca_list[0]
+        for node in lca_list[1:]:
+            final_lca = final_lca.lca(node)
+
+        return final_lca
+    
+    def path(self, x: NNQ[T], y: NNQ[T], limit: int | None = None, offset: int | None = None, traversal_type: TT = None, 
+         return_type: str = 'scalar', flatten: bool = True) -> list[Node[T]] | list[list[Node[T]]] | list[list[list[Node[T]]]]:
+        # Handle case where either x or y is None
+        if x is None:
+            x = y
+        elif y is None:
+            y = x
+        
+        if x is None and y is None:
+            if return_type == 'scalar':
+                return None
+            return [] if flatten else [[]]
+        
+        if isinstance(x, Node):
+            x = list(x)
+        elif isinstance(x, list):
+            x = x
+        elif callable(x):
+            x = self.find_all(x, limit, offset, traversal_type)
+        else:
+            raise ValueError(f"x must be a Node, a list of Nodes, or a callable query that returns a bool.")
+        if isinstance(y, Node):
+            y = list(y)
         elif isinstance(y, list):
             y = y
         elif callable(y):
@@ -288,66 +344,106 @@ class Tree[T]:
         else:
             raise ValueError(f"y must be a Node, a list of Nodes, or a callable query that returns a bool.")
 
+        # If x and y are the same list, we can optimize by exploiting symmetry.
+        symmetric = x is y
 
-    
-    def lowest_common_ancestors(self, nodes: NQL[T], traversal_type: TT = None) -> list[list[Node[T]]]:
-        if isinstance(nodes, list):
-            nodes = nodes
-        elif callable(nodes):
-            nodes = self.find_all(nodes, traversal_type)
-        else:
-            raise ValueError(f"nodes must be a list of Nodes, or a callable query that returns a bool.")
-        return [[self.lowest_common_ancestor(node1, node2) for node2 in nodes] for node1 in nodes]
+        matrix = []
 
+        for i, node_x in enumerate(x):
+            row = []
+            start_j = i + 1 if symmetric else 0
+            for j, node_y in enumerate(y[start_j:], start=start_j):
+                row.append(node_x.path(node_y))
+            matrix.append(row)
+
+        if return_type == 'matrix':
+            if not flatten or symmetric:
+                return matrix
+            else:
+                flattened = [path for row in matrix for path in row]
+                return flattened
+
+        # For scalar return type
+        # Constructing a path that crosses each node in the matrix at least once is non-trivial
+        # One way to do it is to simply concatenate the paths, but it might produce redundant paths
+        # We'll use a naive way here and improvements can be made for more optimized paths
+        scalar_path = []
+        for row in matrix:
+            for path in row:
+                for node in path:
+                    if node not in scalar_path:
+                        scalar_path.append(node)
+
+        return scalar_path
     
-    def get_path(self, node1: NQ[T], node2: NQ[T], traversal_type: TT = None) -> list[Node[T]]:
-        if isinstance(node1, Node):
-            node1 = node1
-        elif callable(node1):
-            node1 = self.find(node1, traversal_type)
-        else:
-            raise ValueError(f"node1 must be a Node or a callable query that returns a bool.")
-        if isinstance(node2, Node):
-            node2 = node2
-        elif callable(node2):
-            node2 = self.find(node2, traversal_type)
-        else:
-            raise ValueError(f"node2 must be a Node or a callable query that returns a bool.")
-        return node1.get_path(node2)
-    
-    def get_paths(self, nodes: NQL[T], traversal_type: TT = None) -> list[list[Node[T]]]:
-        if isinstance(nodes, list):
-            nodes = nodes
-        elif callable(nodes):
-            nodes = self.find_all(nodes, traversal_type)
-        else:
-            raise ValueError(f"nodes must be a list of Nodes, or a callable query that returns a bool.")
-        return [[self.get_path(node1, node2) for node2 in nodes] for node1 in nodes]
+    def distance(self, x: NNQ[T], y: NNQ[T], limit: int | None = None, offset: int | None = None, traversal_type: TT = None, 
+                return_type: str = 'scalar', flatten: bool = True, aggregate: str = 'max') -> float | list[float] | list[list[float]]:
+        # Handle case where either x or y is None
+        if x is None:
+            x = y
+        elif y is None:
+            y = x
+
+        if x is None and y is None:
+            if return_type == 'scalar':
+                return None
+            return [] if flatten else [[]]
         
-    
-    def get_distance(self, node1: NQ[T], node2: NQ[T], traversal_type: TT = None) -> int:
-        if isinstance(node1, Node):
-            node1 = node1
-        elif callable(node1):
-            node1 = self.find(node1, traversal_type)
+        if isinstance(x, Node):
+            x = list(x)
+        elif isinstance(x, list):
+            x = x
+        elif callable(x):
+            x = self.find_all(x, limit, offset, traversal_type)
         else:
-            raise ValueError(f"node1 must be a Node or a callable query that returns a bool.")
-        if isinstance(node2, Node):
-            node2 = node2
-        elif callable(node2):
-            node2 = self.find(node2, traversal_type)
+            raise ValueError(f"x must be a Node, a list of Nodes, or a callable query that returns a bool.")
+        if isinstance(y, Node):
+            y = list(y)
+        elif isinstance(y, list):
+            y = y
+        elif callable(y):
+            y = self.find_all(y, limit, offset, traversal_type)
         else:
-            raise ValueError(f"node2 must be a Node or a callable query that returns a bool.")
-        return node1.get_distance(node2)
-    
-    def get_distances(self, nodes: NQL[T], traversal_type: TT = None) -> list[list[int]]:
-        if isinstance(nodes, list):
-            nodes = nodes
-        elif callable(nodes):
-            nodes = self.find_all(nodes, traversal_type)
+            raise ValueError(f"y must be a Node, a list of Nodes, or a callable query that returns a bool.")
+        symmetric = x is y
+
+        matrix = []
+
+        for i, node_x in enumerate(x):
+            row = []
+            start_j = i + 1 if symmetric else 0
+            for j, node_y in enumerate(y[start_j:], start=start_j):
+                row.append(node_x.distance(node_y))
+            matrix.append(row)
+
+        if return_type == 'matrix':
+            if flatten or symmetric:
+                flattened_aggregated = []
+                for row in matrix:
+                    if aggregate == 'min':
+                        flattened_aggregated.append(min(row))
+                    elif aggregate == 'avg':
+                        flattened_aggregated.append(sum(row) / len(row) if row else 0.0)
+                    elif aggregate == 'max':
+                        flattened_aggregated.append(max(row))
+                    else:
+                        raise ValueError(f"Invalid aggregate type: {aggregate}")
+                return flattened_aggregated
+            else:
+                return matrix
+
+        # For scalar return type
+        distances = [dist for row in matrix for dist in row]
+
+        if aggregate == 'min':
+            return min(distances)
+        elif aggregate == 'avg':
+            return sum(distances) / len(distances) if distances else 0.0
+        elif aggregate == 'max':
+            return max(distances)
         else:
-            raise ValueError(f"nodes must be a list of Nodes, or a callable query that returns a bool.")
-        return [[self.get_distance(node1, node2) for node2 in nodes] for node1 in nodes]
+            raise ValueError(f"Invalid aggregate type: {aggregate}")
+
 
     def get_subtree(self, node: NQ[T], traversal_type: TT = None) -> Self:
         if isinstance(node, Node):
@@ -471,3 +567,78 @@ class Tree[T]:
 
     def print(self) -> None:
         self.root.print()
+
+
+    def lowest_common_ancestor(self, node1: NNQ[T], node2: NNQ[T], traversal_type: TT = None) -> Node[T]:
+        if isinstance(node1, Node):
+            node1 = node1
+        elif callable(node1):
+            node1 = self.find(node1, traversal_type)
+        else:
+            raise ValueError(f"node1 must be a Node or a callable query that returns a bool.")
+        if isinstance(node2, Node):
+            node2 = node2
+        elif callable(node2):
+            node2 = self.find(node2, traversal_type)
+        else:
+            raise ValueError(f"node2 must be a Node or a callable query that returns a bool.")
+        return node1.lca(node2)
+    
+    def lowest_common_ancestors(self, nodes: NQL[T], traversal_type: TT = None) -> list[list[Node[T]]]:
+        if isinstance(nodes, list):
+            nodes = nodes
+        elif callable(nodes):
+            nodes = self.find_all(nodes, traversal_type)
+        else:
+            raise ValueError(f"nodes must be a list of Nodes, or a callable query that returns a bool.")
+        return [[self.lca(node1, node2) for node2 in nodes] for node1 in nodes]
+    
+    
+    def get_path(self, node1: NQ[T], node2: NQ[T], traversal_type: TT = None) -> list[Node[T]]:
+        if isinstance(node1, Node):
+            node1 = node1
+        elif callable(node1):
+            node1 = self.find(node1, traversal_type)
+        else:
+            raise ValueError(f"node1 must be a Node or a callable query that returns a bool.")
+        if isinstance(node2, Node):
+            node2 = node2
+        elif callable(node2):
+            node2 = self.find(node2, traversal_type)
+        else:
+            raise ValueError(f"node2 must be a Node or a callable query that returns a bool.")
+        return node1.get_path(node2)
+    
+    def get_paths(self, nodes: NQL[T], traversal_type: TT = None) -> list[list[Node[T]]]:
+        if isinstance(nodes, list):
+            nodes = nodes
+        elif callable(nodes):
+            nodes = self.find_all(nodes, traversal_type)
+        else:
+            raise ValueError(f"nodes must be a list of Nodes, or a callable query that returns a bool.")
+        return [[self.get_path(node1, node2) for node2 in nodes] for node1 in nodes]
+        
+    
+    def get_distance(self, node1: NQ[T], node2: NQ[T], traversal_type: TT = None) -> int:
+        if isinstance(node1, Node):
+            node1 = node1
+        elif callable(node1):
+            node1 = self.find(node1, traversal_type)
+        else:
+            raise ValueError(f"node1 must be a Node or a callable query that returns a bool.")
+        if isinstance(node2, Node):
+            node2 = node2
+        elif callable(node2):
+            node2 = self.find(node2, traversal_type)
+        else:
+            raise ValueError(f"node2 must be a Node or a callable query that returns a bool.")
+        return node1.get_distance(node2)
+    
+    def get_distances(self, nodes: NQL[T], traversal_type: TT = None) -> list[list[int]]:
+        if isinstance(nodes, list):
+            nodes = nodes
+        elif callable(nodes):
+            nodes = self.find_all(nodes, traversal_type)
+        else:
+            raise ValueError(f"nodes must be a list of Nodes, or a callable query that returns a bool.")
+        return [[self.get_distance(node1, node2) for node2 in nodes] for node1 in nodes]

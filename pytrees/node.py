@@ -218,14 +218,14 @@ class Node[T]:
         # self >= other
         return self.is_descendant_of(other) or self.is_sibling_with(other)
     
-    def lowest_common_ancestor(self, other: Self) -> Self:
+    def lca(self, other: Self) -> Self:
         ancestors = set(self.upwards_traversal())
         for ancestor in other.upwards_traversal():
             if ancestor in ancestors:
                 return ancestor
         raise ValueError(f"Nodes {self} and {other} do not share a common ancestor.")
     
-    def get_path(self, other: Self) -> list[Self]:
+    def path(self, other: Self) -> list[Self]:
         path_self_to_root = [node for node in self.upwards_traversal()]
         
         path_other_to_lca = [node for node in other.upwards_traversal(lambda node: node not in path_self_to_root)]
@@ -236,8 +236,8 @@ class Node[T]:
         lca_index = path_self_to_root.index(path_other_to_lca[-1])
         return path_self_to_root[:lca_index] + path_other_to_lca[::-1]
     
-    def get_distance(self, other: Self) -> int:
-        path = self.get_path(other)
+    def distance(self, other: Self) -> int:
+        path = self.path(other)
         return len(path)
     
     def get_siblings(self) -> list[Self]:
