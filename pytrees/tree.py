@@ -1,5 +1,5 @@
 from pytrees.node import Node
-from typing import Callable, Generator, Self
+from typing import Callable, Generator, Self, Iterable
 from collections import deque
 from enum import Enum
 from rich.tree import Tree as RichTree
@@ -21,6 +21,12 @@ type TT = TraversalType | None
 type NGen[T] = Generator[Node[T], None, None]
 
 type NNQ[T] = Node[T] | list[Node[T]] | Q[T] | QL[T]
+
+type NestedListOfNodes[T] = list[NestedListOfNodes[Node[T]]] | Node[T]
+type Query[T] = Callable[[NestedListOfNodes[T]], bool]
+type NestedListOfNodesOrQuery[T] = NestedListOfNodes[T] | Query[T]
+
+type NodeOrListOfNodesOrQuery[T] = Node[T] | list[Node[T]] | Query[T]
 
 class Tree[T]:
     def __init__(self, root: N[T]) -> None:
@@ -314,6 +320,144 @@ class Tree[T]:
 
         return final_lca
     
+    def lca2(self, *args: NNQ[T], limit: int | None = None, offset: int | None = None, traversal_type: TT = None, 
+            return_type: str = 'scalar', flatten: bool = True) -> Node[T] | list[Node[T]] | list[list[Node[T]]]:
+
+        def flatten_nested_list(nested_list: Iterable) -> list[Node[T]]:
+            """Recursively flatten nested lists."""
+            flat_list = []
+            for item in nested_list:
+                if isinstance(item, list):
+                    flat_list.extend(flatten_nested_list(item))
+                else:
+                    flat_list.append(item)
+            return flat_list
+
+        nodes = []
+        for arg in args:
+            if arg is None:
+                continue
+            elif isinstance(arg, Node):
+                nodes.append([arg])
+            elif isinstance(arg, list):
+                nodes.append(arg)
+            elif callable(arg):
+                nodes.append(self.find_all(arg, limit, offset, traversal_type))
+            else:
+                raise ValueError(f"Argument must be a Node, a list of Nodes, or a callable query that returns a bool.")
+
+        # If there's just one list, duplicate it to maintain compatibility
+        if len(nodes) == 1:
+            nodes.append(nodes[0])
+
+        def compute_lca_matrix(*args) -> Node[T] | list[Node[T]]:
+            """Recursive function to compute the LCA matrix."""
+            if len(args) == 1:
+                return args[0]
+            # Optimize for symmetric matrix
+            symmetric = args[-2] is args[-1]
+            if symmetric:
+                return [[node_x.lca(node_y) for j, node_y in enumerate(args[-1]) if j >= i] for i, node_x in enumerate(args[-2])]
+            return [[node_x.lca(node_y) for node_y in args[-1]] for node_x in compute_lca_matrix(*args[:-1])]
+
+        matrix = compute_lca_matrix(*nodes)
+
+        if return_type == 'matrix':
+            if not flatten:
+                return matrix
+            else:
+                return flatten_nested_list(matrix)
+
+        # For scalar return type
+        flattened = flatten_nested_list(matrix)
+        if not flattened:
+            return None
+
+        final_lca = flattened[0]
+        for node in flattened[1:]:
+            final_lca = final_lca.lca(node)
+
+        return final_lca
+
+    def lca3(self, *args: NestedListOfNodesOrQuery[T], limit: int | None = None, offset: int | None = None, traversal_type: TT = None, 
+            return_type: str = 'scalar', flatten: bool = True) -> NestedListOfNodes[T]:
+
+        def extract_nodes(arg: NestedListOfNodesOrQuery[T]) -> NestedListOfNodes[T]:
+            if isinstance(arg, Node):
+                return [arg]
+            elif isinstance(arg, list):
+                return arg
+            elif callable(arg):
+                return self.find_all(arg, limit, offset, traversal_type)
+            raise ValueError(f"Argument must be a Node, a list of Nodes, or a callable query that returns a bool.")
+        
+        def flatten_list(nested: list(NestedListOfNodes[T])) -> list[Node[T]]:
+            flat = []
+            for item in nested:
+                if isinstance(item, list):
+                    flat.extend(flatten_list(item))
+                else:
+                    flat.append(item)
+            return flat
+            
+        def compute_lca(*node_lists: list[Node[T]]) -> NestedListOfNodes[T]:
+            if len(node_lists) == 1:
+                return node_lists[0]
+
+            computed = []
+            for combination in zip(*node_lists):
+                if all(isinstance(item, Node) for item in combination):
+                    lca_node = combination[0]
+                    for node in combination[1:]:
+                        lca_node = lca_node.lca(node)
+                    computed.append(lca_node)
+                else:
+                    computed.append(compute_lca(*combination))
+            return computed
+        def compute_lca2(node_structure: NestedListOfNodes[T]) -> NestedListOfNodes[T]:
+            if isinstance(node_structure, Node):
+                return node_structure
+
+            computed = []
+            for item in node_structure:
+                if isinstance(item, Node):
+                    computed.append(item)
+                else:
+                    # Recursive call
+                    computed_item = compute_lca(item)
+                    if all(isinstance(sub_item, Node) for sub_item in computed_item):
+                        lca_node = computed_item[0]
+                        for node in computed_item[1:]:
+                            lca_node = lca_node.lca(node)
+                        computed.append(lca_node)
+                    else:
+                        computed.append(computed_item)
+            return computed
+
+
+        nodes = [extract_nodes(arg) for arg in args if arg is not None]
+        result = compute_lca(*nodes)
+
+        if return_type == 'matrix':
+            return flatten_list(result) if flatten else result
+
+        # For scalar return type
+        if isinstance(result, Node):
+            return result
+
+        flattened = flatten_list(result)
+        scalar_lca = flattened[0]
+        for node in flattened[1:]:
+            scalar_lca = scalar_lca.lca(node)
+
+        return scalar_lca
+
+
+
+
+
+
+
     def path(self, x: NNQ[T], y: NNQ[T], limit: int | None = None, offset: int | None = None, traversal_type: TT = None, 
          return_type: str = 'scalar', flatten: bool = True) -> list[Node[T]] | list[list[Node[T]]] | list[list[list[Node[T]]]]:
         # Handle case where either x or y is None
